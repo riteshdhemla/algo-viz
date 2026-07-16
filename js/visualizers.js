@@ -3364,3 +3364,916 @@ VIS["course-schedule"] = {
     return f;
   },
 };
+
+// ============================ batch 7: trees ============================
+
+// helper: postorder DFS over heap-array trees
+const heapKids = (tree, i) => [2 * i + 1, 2 * i + 2].map(k => (k < tree.length && tree[k] !== null ? k : -1));
+
+// ---------------------------------------------------- Diameter of Binary Tree
+VIS["diameter-of-binary-tree"] = {
+  inputs: [],
+  code: `def diameterOfBinaryTree(root):
+    best = 0
+    def height(node):
+        nonlocal best
+        if not node:
+            return 0
+        lh = height(node.left)
+        rh = height(node.right)
+        best = max(best, lh + rh)
+        return 1 + max(lh, rh)
+    height(root)
+    return best`,
+  gen() {
+    const f = mkFrames();
+    const tree = [1, 2, 3, 4, 5, null, null, null, null, null, null, null, null, null, null];
+    let best = 0;
+    const T = hl => ({ t: "tree", label: "tree", v: tree, hl });
+    const V = () => ({ t: "vars", entries: [["best (diameter)", best]] });
+    f.add(`The longest path through a node = left height + right height. Compute heights bottom-up and track the best sum along the way.`, 2, [T({}), V()]);
+    const height = i => {
+      if (i === -1) return 0;
+      const [l, r] = heapKids(tree, i);
+      const lh = height(l), rh = height(r);
+      const improved = lh + rh > best;
+      best = Math.max(best, lh + rh);
+      f.add(`Node ${tree[i]}: left height ${lh}, right height ${rh} → path through it spans ${lh + rh} edge(s).${improved ? " New best!" : ""} Return height ${1 + Math.max(lh, rh)}.`, 9,
+        [T({ [i]: improved ? "g" : "p" }), V()]);
+      return 1 + Math.max(lh, rh);
+    };
+    height(0);
+    f.add(`Diameter: ${best} edges. One postorder pass — O(n).`, 12, [T({}), V()], true);
+    return f;
+  },
+};
+
+// -------------------------------------------------------- Balanced Binary Tree
+VIS["balanced-binary-tree"] = {
+  inputs: [],
+  code: `def isBalanced(root):
+    def dfs(node):
+        if not node:
+            return 0
+        lh = dfs(node.left)
+        rh = dfs(node.right)
+        if lh == -1 or rh == -1 or abs(lh - rh) > 1:
+            return -1
+        return 1 + max(lh, rh)
+    return dfs(root) != -1`,
+  gen() {
+    const f = mkFrames();
+    const tree = [3, 9, 20, null, null, 15, 7, null, null, null, null, 8, null, null, null];
+    const T = hl => ({ t: "tree", label: "tree", v: tree, hl });
+    f.add(`Bottom-up DFS returns each subtree's height — or −1 the instant anything is unbalanced, short-circuiting the rest.`, 2, [T({})]);
+    let failed = false;
+    const dfs = i => {
+      if (i === -1 || failed) return 0;
+      const [l, r] = heapKids(tree, i);
+      const lh = dfs(l), rh = dfs(r);
+      if (failed) return -1;
+      if (Math.abs(lh - rh) > 1) {
+        failed = true;
+        f.add(`Node ${tree[i]}: heights ${lh} vs ${rh} differ by ${Math.abs(lh - rh)} > 1 — unbalanced! Bubble −1 all the way up.`, 8, [T({ [i]: "r" })], true);
+        return -1;
+      }
+      f.add(`Node ${tree[i]}: heights ${lh} and ${rh} — balanced here. Return height ${1 + Math.max(lh, rh)}.`, 9, [T({ [i]: "g" })]);
+      return 1 + Math.max(lh, rh);
+    };
+    if (dfs(0) !== -1) {
+      f.add(`Every node balanced — return True. O(n): each node computes its height exactly once.`, 10, [T(Object.fromEntries(tree.map((v, i) => [i, v !== null ? "g" : undefined]).filter(([, c]) => c)))], true);
+    }
+    return f;
+  },
+};
+
+// ----------------------------------------------------------------- Same Tree
+VIS["same-tree"] = {
+  inputs: [],
+  code: `def isSameTree(p, q):
+    if not p and not q:
+        return True
+    if not p or not q or p.val != q.val:
+        return False
+    return (isSameTree(p.left, q.left) and
+            isSameTree(p.right, q.right))`,
+  gen() {
+    const f = mkFrames();
+    const p = [1, 2, 3, 4, null, null, null, null, null, null, null, null, null, null, null];
+    const q = [1, 2, 3, 4, null, null, null, null, null, null, null, null, null, null, null];
+    const P = hl => ({ t: "tree", label: "tree p", v: p, hl });
+    const Q = hl => ({ t: "tree", label: "tree q", v: q, hl });
+    f.add(`Walk both trees in lockstep: the pair must agree at every position — both missing, or both present with equal values.`, 2, [P({}), Q({})]);
+    let same = true;
+    const dfs = i => {
+      if (!same) return;
+      const pv = i < p.length ? p[i] : null, qv = i < q.length ? q[i] : null;
+      if (pv === null && qv === null) return;
+      if (pv === null || qv === null || pv !== qv) {
+        same = false;
+        f.add(`Mismatch at this position: p has ${pv ?? "nothing"}, q has ${qv ?? "nothing"} — trees differ. Return False.`, 5, [P({ [i]: "r" }), Q({ [i]: "r" })], true);
+        return;
+      }
+      f.add(`Both trees have ${pv} here — match. Recurse into both subtrees.`, 6, [P({ [i]: "g" }), Q({ [i]: "g" })]);
+      dfs(2 * i + 1);
+      dfs(2 * i + 2);
+    };
+    dfs(0);
+    if (same) {
+      const done = t => Object.fromEntries(t.map((v, i) => [i, v !== null ? "g" : undefined]).filter(([, c]) => c));
+      f.add(`Every position matched — the trees are identical. Return True. O(n).`, 3, [P(done(p)), Q(done(q))], true);
+    }
+    return f;
+  },
+};
+
+// ----------------------------------------------------- Subtree of Another Tree
+VIS["subtree-of-another-tree"] = {
+  inputs: [],
+  code: `def isSubtree(root, subRoot):
+    def same(a, b):
+        if not a and not b:
+            return True
+        if not a or not b or a.val != b.val:
+            return False
+        return (same(a.left, b.left) and
+                same(a.right, b.right))
+    if not root:
+        return False
+    if same(root, subRoot):
+        return True
+    return (isSubtree(root.left, subRoot) or
+            isSubtree(root.right, subRoot))`,
+  gen() {
+    const f = mkFrames();
+    const root = [3, 4, 5, 1, 2, null, null, null, null, null, null, null, null, null, null];
+    const sub = [4, 1, 2, null, null, null, null, null, null, null, null, null, null, null, null];
+    const R = hl => ({ t: "tree", label: "root", v: root, hl });
+    const S = hl => ({ t: "tree", label: "subRoot", v: sub, hl });
+    const same = (i, j) => {
+      const a = i < root.length ? root[i] : null, b = j < sub.length ? sub[j] : null;
+      if (a === null && b === null) return true;
+      if (a === null || b === null || a !== b) return false;
+      return same(2 * i + 1, 2 * j + 1) && same(2 * i + 2, 2 * j + 2);
+    };
+    const subMark = Object.fromEntries(sub.map((v, i) => [i, v !== null ? "y" : undefined]).filter(([, c]) => c));
+    f.add(`For every node of the main tree, ask: is the subtree rooted here IDENTICAL to subRoot? (An O(n·m) check that's plenty fast in practice.)`, 2, [R({}), S(subMark)]);
+    const order = root.map((v, i) => (v !== null ? i : -1)).filter(i => i >= 0);
+    for (const i of order) {
+      if (root[i] !== sub[0]) {
+        f.add(`Node ${root[i]} ≠ subRoot's root ${sub[0]} — can't anchor a match here, move on.`, 5, [R({ [i]: "d" }), S(subMark)]);
+        continue;
+      }
+      if (same(i, 0)) {
+        const hl = {};
+        const paint = (a, b) => {
+          if (b >= sub.length || sub[b] === null) return;
+          hl[a] = "g";
+          paint(2 * a + 1, 2 * b + 1);
+          paint(2 * a + 2, 2 * b + 2);
+        };
+        paint(i, 0);
+        f.add(`Node ${root[i]} matches, and the full same-tree check passes — subRoot appears here. Return True.`, 12, [R(hl), S(Object.fromEntries(Object.keys(subMark).map(k => [k, "g"])))], true);
+        return f;
+      }
+      f.add(`Node ${root[i]} matches subRoot's root, but the structures diverge below — keep searching.`, 11, [R({ [i]: "y" }), S(subMark)]);
+    }
+    f.add(`No node anchored a full match — subRoot is not a subtree. Return False.`, 15, [R({}), S(subMark)], true);
+    return f;
+  },
+};
+
+// ---------------------------------------------------- Binary Tree Right Side View
+VIS["binary-tree-right-side-view"] = {
+  inputs: [],
+  code: `def rightSideView(root):
+    res = []
+    queue = deque([root] if root else [])
+    while queue:
+        res.append(queue[-1].val)
+        for _ in range(len(queue)):
+            node = queue.popleft()
+            if node.left:
+                queue.append(node.left)
+            if node.right:
+                queue.append(node.right)
+    return res`,
+  gen() {
+    const f = mkFrames();
+    const tree = [1, 2, 3, null, 5, null, 4, null, null, null, null, null, null, null, null];
+    let queue = [0];
+    const res = [];
+    const T = hl => ({ t: "tree", label: "tree", v: tree, hl });
+    const R = () => ({ t: "set", label: "res (visible from the right)", v: res });
+    f.add(`Looking from the right you see exactly one node per level — the RIGHTMOST. BFS each level and keep its last node.`, 3, [T({}), R()]);
+    while (queue.length) {
+      const lastIdx = queue[queue.length - 1];
+      res.push(tree[lastIdx]);
+      const hl = Object.fromEntries(queue.map(i => [i, "p"]));
+      hl[lastIdx] = "g";
+      f.add(`Level [${queue.map(i => tree[i]).join(", ")}]: the rightmost is ${tree[lastIdx]} — that's what the right side sees.`, 5, [T(hl), R()]);
+      const next = [];
+      for (const i of queue) {
+        const [l, r] = heapKids(tree, i);
+        if (l !== -1) next.push(l);
+        if (r !== -1) next.push(r);
+      }
+      queue = next;
+    }
+    f.add(`Right side view: [${res.join(", ")}]. O(n).`, 12, [T({}), R()], true);
+    return f;
+  },
+};
+
+// ------------------------------------------------ Count Good Nodes in Binary Tree
+VIS["count-good-nodes-in-binary-tree"] = {
+  inputs: [],
+  code: `def goodNodes(root):
+    def dfs(node, best):
+        if not node:
+            return 0
+        good = 1 if node.val >= best else 0
+        best = max(best, node.val)
+        return (good + dfs(node.left, best)
+                     + dfs(node.right, best))
+    return dfs(root, root.val)`,
+  gen() {
+    const f = mkFrames();
+    const tree = [3, 1, 4, 3, null, 1, 5, null, null, null, null, null, null, null, null];
+    let count = 0;
+    const T = hl => ({ t: "tree", label: "tree", v: tree, hl });
+    const V = () => ({ t: "vars", entries: [["good nodes", count]] });
+    f.add(`A node is good if nothing GREATER sits on its path from the root. DFS just carries the running max down.`, 2, [T({}), V()]);
+    const dfs = (i, best) => {
+      if (i === -1) return;
+      const v = tree[i];
+      const good = v >= best;
+      if (good) count++;
+      f.add(`Node ${v}: path max so far is ${best} — ${good ? `${v} ≥ ${best}, GOOD (total ${count})` : `${v} < ${best}, not good`}. Pass max ${Math.max(best, v)} down.`, good ? 5 : 6,
+        [T({ [i]: good ? "g" : "d" }), V()]);
+      const [l, r] = heapKids(tree, i);
+      dfs(l, Math.max(best, v));
+      dfs(r, Math.max(best, v));
+    };
+    dfs(0, tree[0]);
+    f.add(`${count} good nodes. One DFS pass — O(n).`, 9, [T({}), V()], true);
+    return f;
+  },
+};
+
+// ------------------------------------------------ Kth Smallest Element in a BST
+VIS["kth-smallest-element-in-a-bst"] = {
+  inputs: [{ name: "k", label: "k", type: "int", def: "3", min: 1, max: 5 }],
+  code: `def kthSmallest(root, k):
+    stack = []
+    node = root
+    while True:
+        while node:
+            stack.append(node)
+            node = node.left
+        node = stack.pop()
+        k -= 1
+        if k == 0:
+            return node.val
+        node = node.right`,
+  gen(k) {
+    const f = mkFrames();
+    const tree = [5, 3, 6, 2, 4, null, null, null, null, null, null, null, null, null, null];
+    const total = tree.filter(v => v !== null).length;
+    if (k > total) k = total;
+    const stack = [];
+    const T = hl => ({ t: "tree", label: "BST", v: tree, hl });
+    const S = () => ({ t: "stack", label: "stack", v: stack.map(i => tree[i]) });
+    const V = left => ({ t: "vars", entries: [["k (remaining)", left]] });
+    f.add(`In-order traversal visits a BST in ascending order — so just walk in-order and stop at the ${k}th visit. No sorting, no extra array.`, 2, [T({}), S(), V(k)]);
+    let node = 0, left = k;
+    let guard = 0;
+    while (guard++ < 40) {
+      while (node !== -1) {
+        stack.push(node);
+        f.add(`Push ${tree[node]} and dive left — smallest values live leftmost.`, 6, [T({ [node]: "p" }), S(), V(left)]);
+        const [l] = heapKids(tree, node);
+        node = l;
+      }
+      const i = stack.pop();
+      left--;
+      if (left === 0) {
+        f.add(`Visit ${tree[i]} — that's the ${k}th smallest! Return ${tree[i]}. O(h + k).`, 11, [T({ [i]: "g" }), S(), V(left)], true);
+        return f;
+      }
+      f.add(`Visit ${tree[i]} (${k - left} of ${k}) — not there yet, continue into its right subtree.`, 9, [T({ [i]: "y" }), S(), V(left)]);
+      const [, r] = heapKids(tree, i);
+      node = r;
+    }
+    return f;
+  },
+};
+
+// ----------------------- Construct Binary Tree from Preorder and Inorder
+VIS["construct-binary-tree-from-preorder-and-inorder-traversal"] = {
+  inputs: [],
+  code: `def buildTree(preorder, inorder):
+    if not preorder:
+        return None
+    root = TreeNode(preorder[0])
+    mid = inorder.index(preorder[0])
+    root.left = buildTree(preorder[1:mid+1],
+                          inorder[:mid])
+    root.right = buildTree(preorder[mid+1:],
+                           inorder[mid+1:])
+    return root`,
+  gen() {
+    const f = mkFrames();
+    const preorder = [3, 9, 20, 15, 7];
+    const inorder = [9, 3, 15, 20, 7];
+    const built = new Array(15).fill(null);
+    const P = hl => ({ t: "arr", label: "preorder (root comes first)", v: preorder, hl });
+    const I = hl => ({ t: "arr", label: "inorder (left | root | right)", v: inorder, hl });
+    const T = hl => ({ t: "tree", label: "tree under construction", v: built, hl });
+    f.add(`Preorder hands us each root in order; inorder tells us what's left vs right of that root. Recurse on the two sides.`, 4, [P({}), I({}), T({})]);
+    const build = (pLo, pHi, iLo, iHi, pos) => {
+      if (pLo > pHi) return;
+      const rootVal = preorder[pLo];
+      const mid = inorder.indexOf(rootVal);
+      built[pos] = rootVal;
+      const iHl = { [mid]: "g" };
+      for (let x = iLo; x < mid; x++) iHl[x] = "p";
+      for (let x = mid + 1; x <= iHi; x++) iHl[x] = "y";
+      f.add(`preorder[${pLo}] = ${rootVal} is the next root. In inorder it sits at index ${mid}: [${inorder.slice(iLo, mid).join(",") || "∅"}] goes left, [${inorder.slice(mid + 1, iHi + 1).join(",") || "∅"}] goes right.`, 5,
+        [P({ [pLo]: "g" }), I(iHl), T({ [pos]: "g" })]);
+      const leftSize = mid - iLo;
+      build(pLo + 1, pLo + leftSize, iLo, mid - 1, 2 * pos + 1);
+      build(pLo + leftSize + 1, pHi, mid + 1, iHi, 2 * pos + 2);
+    };
+    build(0, preorder.length - 1, 0, inorder.length - 1, 0);
+    f.add(`Tree fully reconstructed. With a value→index map for inorder, this is O(n).`, 10, [P({}), I({}), T(Object.fromEntries(built.map((v, i) => [i, v !== null ? "g" : undefined]).filter(([, c]) => c)))], true);
+    return f;
+  },
+};
+
+// -------------------------------------------------- Binary Tree Maximum Path Sum
+VIS["binary-tree-maximum-path-sum"] = {
+  inputs: [],
+  code: `def maxPathSum(root):
+    best = float("-inf")
+    def gain(node):
+        nonlocal best
+        if not node:
+            return 0
+        lg = max(gain(node.left), 0)
+        rg = max(gain(node.right), 0)
+        best = max(best, node.val + lg + rg)
+        return node.val + max(lg, rg)
+    gain(root)
+    return best`,
+  gen() {
+    const f = mkFrames();
+    const tree = [-10, 9, 20, null, null, 15, 7, null, null, null, null, null, null, null, null];
+    let best = -Infinity;
+    const T = hl => ({ t: "tree", label: "tree", v: tree, hl });
+    const V = () => ({ t: "vars", entries: [["best", best === -Infinity ? "-∞" : best]] });
+    f.add(`Each node reports its best DOWNWARD gain (never negative — a bad subtree is simply not taken). The best full path through a node is val + left gain + right gain.`, 3, [T({}), V()]);
+    const gain = i => {
+      if (i === -1) return 0;
+      const [l, r] = heapKids(tree, i);
+      const lg = Math.max(gain(l), 0), rg = Math.max(gain(r), 0);
+      const through = tree[i] + lg + rg;
+      const improved = through > best;
+      best = Math.max(best, through);
+      f.add(`Node ${tree[i]}: gains left ${lg}, right ${rg} → path through it sums to ${through}.${improved ? " New best!" : ""} Report ${tree[i] + Math.max(lg, rg)} upward.`, 9,
+        [T({ [i]: improved ? "g" : "p" }), V()]);
+      return tree[i] + Math.max(lg, rg);
+    };
+    gain(0);
+    f.add(`Maximum path sum: ${best} (here the path 15 → 20 → 7 never even touches the root). O(n).`, 12, [T({ 2: "g", 5: "g", 6: "g" }), V()], true);
+    return f;
+  },
+};
+
+// ------------------------------------- Serialize and Deserialize Binary Tree
+VIS["serialize-and-deserialize-binary-tree"] = {
+  inputs: [],
+  code: `def serialize(root):
+    out = []
+    def dfs(node):
+        if not node:
+            out.append("N")
+            return
+        out.append(str(node.val))
+        dfs(node.left)
+        dfs(node.right)
+    dfs(root)
+    return ",".join(out)
+
+def deserialize(data):
+    vals = iter(data.split(","))
+    def build():
+        v = next(vals)
+        if v == "N":
+            return None
+        node = TreeNode(int(v))
+        node.left = build()
+        node.right = build()
+        return node
+    return build()`,
+  gen() {
+    const f = mkFrames();
+    const tree = [1, 2, 3, null, null, 4, 5, null, null, null, null, null, null, null, null];
+    const out = [];
+    const T = hl => ({ t: "tree", label: "tree", v: tree, hl });
+    const O = hl => ({ t: "arr", label: "serialized tokens", v: out.length ? out : ["·"], hl });
+    f.add(`Preorder DFS with explicit "N" for nulls captures the tree's exact shape — no indices, no math, fully reversible.`, 3, [T({}), O({})]);
+    const dfs = i => {
+      const v = i !== -1 && i < tree.length && tree[i] !== null ? tree[i] : null;
+      if (v === null) {
+        out.push("N");
+        f.add(`Nothing here — emit "N" so the decoder knows this branch ends.`, 5, [T({}), O({ [out.length - 1]: "y" })]);
+        return;
+      }
+      out.push(String(v));
+      f.add(`Visit ${v} — emit "${v}", then its left subtree, then its right.`, 7, [T({ [i]: "p" }), O({ [out.length - 1]: "p" })]);
+      const [l, r] = [2 * i + 1, 2 * i + 2].map(k => (k < tree.length && tree[k] !== null ? k : -1));
+      dfs(l);
+      dfs(r);
+    };
+    dfs(0);
+    f.add(`Serialized: "${out.join(",")}". Now deserialize by consuming tokens in the SAME preorder.`, 11, [T({}), O({})]);
+    const rebuilt = new Array(15).fill(null);
+    let ptr = 0;
+    const R = hl => ({ t: "tree", label: "rebuilt tree", v: rebuilt, hl });
+    const build = pos => {
+      const v = out[ptr++];
+      if (v === "N") return;
+      if (pos < rebuilt.length) rebuilt[pos] = Number(v);
+      f.add(`Consume "${v}" → place node ${v}, then recursively build its left and right children.`, 19, [O({ [ptr - 1]: "g" }), R({ [pos]: "g" })]);
+      build(2 * pos + 1);
+      build(2 * pos + 2);
+    };
+    build(0);
+    f.add(`Round trip complete — the rebuilt tree is identical. O(n) both ways.`, 23, [O({}), R(Object.fromEntries(rebuilt.map((v, i) => [i, v !== null ? "g" : undefined]).filter(([, c]) => c)))], true);
+    return f;
+  },
+};
+
+// ============================ batch 8: linked lists, binary search, sudoku ============================
+
+// ------------------------------------------------------------------ Reorder List
+VIS["reorder-list"] = {
+  inputs: [{ name: "vals", label: "list values", type: "arr", def: "[1, 2, 3, 4, 5]", max: 8, min: 3 }],
+  code: `def reorderList(head):
+    # 1) find the middle (slow / fast)
+    slow, fast = head, head
+    while fast and fast.next:
+        slow = slow.next
+        fast = fast.next.next
+    # 2) reverse the second half
+    second = slow.next
+    slow.next = None
+    prev = None
+    while second:
+        second.next, prev, second = \\
+            prev, second, second.next
+    # 3) interleave the two halves
+    first = head
+    while prev:
+        first.next, prev.next = prev, first.next
+        first, prev = prev.next, prev.next`,
+  gen(vals) {
+    const f = mkFrames();
+    const n = vals.length;
+    const LL = (arr, ptrs, hl, label) => ({ t: "ll", label, v: arr.map((v, i) => ({ val: v, dir: i === arr.length - 1 ? null : "R" })), ptrs: ptrs || {}, hl: hl || {} });
+    let slow = 0, fast = 0;
+    f.add(`Three classic tricks chained: find the middle, reverse the back half, then zip the halves together.`, 3, [LL(vals, { 0: "slow fast" }, {}, "list")]);
+    while (fast < n - 1 && fast + 1 < n - 1 + 1 && fast + 2 <= n) {
+      if (fast + 2 > n - 1 && fast + 1 > n - 1) break;
+      slow++;
+      fast = Math.min(fast + 2, n);
+      if (fast >= n - 1 && slow > 0) { break; }
+    }
+    // recompute cleanly
+    slow = 0; fast = 0;
+    while (fast < n - 1 && fast + 1 <= n - 1) {
+      slow++;
+      fast += 2;
+      f.add(`slow → node ${vals[slow]}, fast jumps two — when fast hits the end, slow is the middle.`, 6,
+        [LL(vals, fast <= n - 1 ? { [slow]: "slow", [fast]: "fast" } : { [slow]: "slow" }, { [slow]: "p" }, "list")]);
+      if (fast >= n - 1) break;
+    }
+    const firstHalf = vals.slice(0, slow + 1);
+    const secondHalf = vals.slice(slow + 1);
+    f.add(`Split after node ${vals[slow]}: first half [${firstHalf.join(", ")}], second half [${secondHalf.join(", ")}].`, 9,
+      [LL(firstHalf, {}, {}, "first half"), LL(secondHalf, {}, {}, "second half")]);
+    const revSecond = [...secondHalf].reverse();
+    f.add(`Reverse the second half in place → [${revSecond.join(", ")}] (same pointer-flipping walk as Reverse Linked List).`, 13,
+      [LL(firstHalf, {}, {}, "first half"), LL(revSecond, {}, Object.fromEntries(revSecond.map((_, i) => [i, "y"])), "second half (reversed)")]);
+    const out = [];
+    let i = 0, j = 0;
+    while (i < firstHalf.length || j < revSecond.length) {
+      if (i < firstHalf.length) out.push(firstHalf[i++]);
+      if (j < revSecond.length) out.push(revSecond[j++]);
+    }
+    let k = 0;
+    const merged = [];
+    i = 0; j = 0;
+    while (i < firstHalf.length || j < revSecond.length) {
+      if (i < firstHalf.length) { merged.push(firstHalf[i]); i++; }
+      if (j < revSecond.length) { merged.push(revSecond[j]); j++; }
+      f.add(`Interleave: take one from the front, one from the (reversed) back → [${merged.join(", ")}].`, 17,
+        [LL(merged, {}, { [merged.length - 1]: "g" }, "reordered")]);
+      k++;
+    }
+    f.add(`Reordered: L0 → Ln → L1 → Ln−1 … = [${merged.join(" → ")}]. All three phases are O(n), O(1) space.`, 18,
+      [LL(merged, {}, Object.fromEntries(merged.map((_, x) => [x, "g"])), "reordered")], true);
+    return f;
+  },
+};
+
+// -------------------------------------------- Copy List with Random Pointer
+VIS["copy-list-with-random-pointer"] = {
+  inputs: [],
+  code: `def copyRandomList(head):
+    old_to_new = {None: None}
+    cur = head
+    while cur:                      # pass 1: clone nodes
+        old_to_new[cur] = Node(cur.val)
+        cur = cur.next
+    cur = head
+    while cur:                      # pass 2: wire pointers
+        copy = old_to_new[cur]
+        copy.next = old_to_new[cur.next]
+        copy.random = old_to_new[cur.random]
+        cur = cur.next
+    return old_to_new[head]`,
+  gen() {
+    const f = mkFrames();
+    const vals = [7, 13, 11, 10, 1];
+    const randoms = [null, 0, 4, 2, 0]; // index of random target
+    const cloned = [];
+    const LL = hl => ({
+      t: "ll", label: "original (random targets shown below)",
+      v: vals.map((v, i) => ({ val: v, dir: i === vals.length - 1 ? null : "R" })),
+      ptrs: Object.fromEntries(vals.map((_, i) => [i, randoms[i] === null ? "r→∅" : `r→${vals[randoms[i]]}`])),
+      hl: hl || {},
+    });
+    const M = hl => ({ t: "kv", label: "old_to_new", entries: cloned.map(i => [`node ${vals[i]}`, `clone ${vals[i]}'`]), hl });
+    f.add(`The random pointers can jump anywhere — so first clone every node into a map, THEN wire pointers by translating old → new.`, 2, [LL(), M()]);
+    for (let i = 0; i < vals.length; i++) {
+      cloned.push(i);
+      f.add(`Pass 1: clone node ${vals[i]} → ${vals[i]}' and record it in the map.`, 5, [LL({ [i]: "p" }), M({ [`node ${vals[i]}`]: "p" })]);
+    }
+    for (let i = 0; i < vals.length; i++) {
+      const rnd = randoms[i] === null ? "∅" : `${vals[randoms[i]]}'`;
+      const nxt = i === vals.length - 1 ? "∅" : `${vals[i + 1]}'`;
+      f.add(`Pass 2: ${vals[i]}'.next = ${nxt}, ${vals[i]}'.random = ${rnd} — both read straight from the map, even forward references.`, 11,
+        [LL({ [i]: "g", ...(randoms[i] !== null ? { [randoms[i]]: "y" } : {}) }), M({ [`node ${vals[i]}`]: "g" })]);
+    }
+    f.add(`Deep copy complete — every next and random pointer lands on a clone, never an original. Two passes, O(n) time and space.`, 13, [LL(), M()], true);
+    return f;
+  },
+};
+
+// ----------------------------------------------------------------- LRU Cache
+VIS["lru-cache"] = {
+  inputs: [],
+  code: `class LRUCache:  # capacity 2 in this demo
+    def __init__(self, capacity):
+        self.cap = capacity
+        self.cache = {}   # key -> list node
+        # doubly linked list keeps recency:
+        # left = least recent, right = most recent
+
+    def get(self, key):
+        if key not in self.cache:
+            return -1
+        self._move_to_right(key)   # O(1) unlink+relink
+        return self.cache[key].val
+
+    def put(self, key, value):
+        self.cache[key] = Node(key, value)
+        self._move_to_right(key)
+        if len(self.cache) > self.cap:
+            lru = self._leftmost()  # least recent
+            del self.cache[lru.key]`,
+  gen() {
+    const f = mkFrames();
+    const cap = 2;
+    const cache = new Map(); // key -> value, insertion order = recency (left = LRU)
+    const C = hl => ({ t: "kv", label: "cache (map)", entries: [...cache.entries()].map(([k, v]) => [k, v]), hl });
+    const O = hl => ({ t: "arr", label: "recency (LRU → MRU)", v: cache.size ? [...cache.keys()] : ["·"], hl });
+    f.add(`Two structures, one job each: a hash map finds entries in O(1); a doubly linked list keeps them in recency order so eviction is also O(1).`, 3, [C(), O()]);
+    const touch = k => { const v = cache.get(k); cache.delete(k); cache.set(k, v); };
+    const ops = [
+      ["put", 1, 1], ["put", 2, 2], ["get", 1], ["put", 3, 3], ["get", 2], ["put", 4, 4], ["get", 1], ["get", 3], ["get", 4],
+    ];
+    for (const [op, key, val] of ops) {
+      if (op === "put") {
+        cache.set(key, val);
+        touch(key);
+        if (cache.size > cap) {
+          const lru = cache.keys().next().value;
+          f.add(`put(${key}, ${val}): insert as most-recent — over capacity! The leftmost (least recent) key ${lru} is evicted.`, 19,
+            [C({ [lru]: "r", [key]: "p" }), O({ 0: "r" })]);
+          cache.delete(lru);
+        } else {
+          f.add(`put(${key}, ${val}): store it and mark it most-recent (rightmost).`, 16, [C({ [key]: "p" }), O({ [cache.size - 1]: "p" })]);
+        }
+      } else {
+        if (!cache.has(key)) {
+          f.add(`get(${key}): not in the map — return -1.`, 10, [C(), O()]);
+        } else {
+          touch(key);
+          f.add(`get(${key}) → ${cache.get(key)}. Accessing it moves it to most-recent — the list re-links in O(1).`, 12,
+            [C({ [key]: "g" }), O({ [cache.size - 1]: "g" })]);
+        }
+      }
+    }
+    f.add(`Every get and put ran in O(1): the map for lookup, the recency list for ordering and eviction.`, 12, [C(), O()], true);
+    return f;
+  },
+};
+
+// --------------------------------------------------------- Merge k Sorted Lists
+VIS["merge-k-sorted-lists"] = {
+  inputs: [],
+  code: `def mergeKLists(lists):
+    heap = [(l.val, i, l)
+            for i, l in enumerate(lists) if l]
+    heapify(heap)
+    dummy = tail = ListNode()
+    while heap:
+        val, i, node = heappop(heap)
+        tail.next = node
+        tail = tail.next
+        if node.next:
+            heappush(heap,
+                (node.next.val, i, node.next))
+    return dummy.next`,
+  gen() {
+    const f = mkFrames();
+    const lists = [[1, 4, 5], [1, 3, 4], [2, 6]];
+    const idx = lists.map(() => 0);
+    const out = [];
+    const L = (li, hl) => ({
+      t: "arr", label: `list ${li + 1}`, v: lists[li],
+      hl: { ...Object.fromEntries(lists[li].map((_, x) => [x, x < idx[li] ? "d" : undefined]).filter(([, c]) => c)), ...(hl || {}) },
+      ptrs: idx[li] < lists[li].length ? { [idx[li]]: "head" } : {},
+    });
+    const heapView = () => lists.map((l, li) => (idx[li] < l.length ? [l[idx[li]], li] : null)).filter(Boolean).sort((a, b) => a[0] - b[0]);
+    const H = hl => ({ t: "set", label: "min-heap of current heads", v: heapView().map(([v, li]) => `${v} (list ${li + 1})`), hl });
+    const O = hl => ({ t: "arr", label: "merged", v: out.length ? out : ["·"], hl });
+    f.add(`Only k candidates can be the next-smallest — the k list heads. Keep them in a min-heap: pop the smallest, push its successor.`, 3,
+      [L(0), L(1), L(2), H(), O({})]);
+    while (heapView().length) {
+      const [val, li] = heapView()[0];
+      idx[li]++;
+      out.push(val);
+      const succ = idx[li] < lists[li].length ? lists[li][idx[li]] : null;
+      f.add(`Pop ${val} (list ${li + 1}'s head) — append it.${succ !== null ? ` Its successor ${succ} enters the heap.` : ` List ${li + 1} is exhausted.`}`, succ !== null ? 11 : 7,
+        [L(0), L(1), L(2), H(succ !== null ? { [`${succ} (list ${li + 1})`]: "y" } : {}), O({ [out.length - 1]: "g" })]);
+    }
+    f.add(`Merged: [${out.join(", ")}]. Each of the n nodes cost one O(log k) heap operation → O(n log k).`, 13,
+      [O(Object.fromEntries(out.map((_, x) => [x, "g"])))], true);
+    return f;
+  },
+};
+
+// ------------------------------------------------- Reverse Nodes in k-Group
+VIS["reverse-nodes-in-k-group"] = {
+  inputs: [
+    { name: "vals", label: "list values", type: "arr", def: "[1, 2, 3, 4, 5]", max: 8, min: 1 },
+    { name: "k", label: "k", type: "int", def: "2", min: 1, max: 4 },
+  ],
+  code: `def reverseKGroup(head, k):
+    dummy = ListNode(0, head)
+    prev_group = dummy
+    while True:
+        kth = prev_group          # find the k-th node
+        for _ in range(k):
+            kth = kth.next
+            if not kth:
+                return dummy.next # < k left: keep order
+        nxt_group = kth.next
+        prev, cur = nxt_group, prev_group.next
+        while cur != nxt_group:   # reverse the group
+            cur.next, prev, cur = prev, cur, cur.next
+        start = prev_group.next   # stitch it back in
+        prev_group.next = kth
+        prev_group = start`,
+  gen(vals, k) {
+    const f = mkFrames();
+    let arr = [...vals];
+    const LL = (hl, label) => ({ t: "ll", label: label || "list", v: arr.map((v, i) => ({ val: v, dir: i === arr.length - 1 ? null : "R" })), ptrs: {}, hl: hl || {} });
+    f.add(`Process the list in blocks of ${k}: count ${k} nodes ahead, reverse just that block in place, stitch it to the previous one.`, 3, [LL()]);
+    let start = 0;
+    while (start + k <= arr.length) {
+      const hl = {};
+      for (let x = start; x < start + k; x++) hl[x] = "w";
+      f.add(`Group [${arr.slice(start, start + k).join(", ")}] has a full ${k} nodes — reverse it.`, 6, [LL(hl)]);
+      const block = arr.slice(start, start + k).reverse();
+      arr = [...arr.slice(0, start), ...block, ...arr.slice(start + k)];
+      const hl2 = {};
+      for (let x = start; x < start + k; x++) hl2[x] = "g";
+      f.add(`Reversed in place and stitched: […${start ? " " : ""}${arr.slice(0, start).join(", ")}${start ? ", " : ""}${block.join(", ")}, …]. The block's old first node now links to the next group.`, 16, [LL(hl2)]);
+      start += k;
+    }
+    if (start < arr.length) {
+      const hl = {};
+      for (let x = start; x < arr.length; x++) hl[x] = "d";
+      f.add(`Only ${arr.length - start} node(s) remain — fewer than ${k}, so they keep their original order.`, 9, [LL(hl)]);
+    }
+    f.add(`Final list: [${arr.join(" → ")}]. Each node's pointer is rewritten once → O(n), O(1) space.`, 9,
+      [LL(Object.fromEntries(arr.map((_, x) => [x, "g"])))], true);
+    return f;
+  },
+};
+
+// ------------------------------------------------- Time Based Key-Value Store
+VIS["time-based-key-value-store"] = {
+  inputs: [],
+  code: `class TimeMap:
+    def __init__(self):
+        self.store = {}  # key -> [(timestamp, value)]
+
+    def set(self, key, value, timestamp):
+        self.store.setdefault(key, []).append(
+            (timestamp, value))
+
+    def get(self, key, timestamp):
+        pairs = self.store.get(key, [])
+        res = ""
+        l, r = 0, len(pairs) - 1
+        while l <= r:
+            m = (l + r) // 2
+            if pairs[m][0] <= timestamp:
+                res = pairs[m][1]
+                l = m + 1
+            else:
+                r = m - 1
+        return res`,
+  gen() {
+    const f = mkFrames();
+    const store = {};
+    const S = hl => ({ t: "kv", label: "store", entries: Object.entries(store).map(([k, v]) => [k, v.map(([t, x]) => `(t${t}: ${x})`).join(" ")], []), hl });
+    f.add(`Timestamps only ever increase, so each key's history is already sorted — get() is a binary search for the rightmost timestamp ≤ the query.`, 3, [S()]);
+    const ops = [
+      ["set", "foo", "bar", 1], ["get", "foo", 1], ["get", "foo", 3],
+      ["set", "foo", "bar2", 4], ["get", "foo", 4], ["get", "foo", 5], ["get", "foo", 0],
+    ];
+    for (const op of ops) {
+      if (op[0] === "set") {
+        const [, key, value, ts] = op;
+        (store[key] = store[key] || []).push([ts, value]);
+        f.add(`set("${key}", "${value}", t=${ts}) — append to the key's history (stays sorted for free).`, 6, [S({ [key]: "p" })]);
+      } else {
+        const [, key, ts] = op;
+        const pairs = store[key] || [];
+        let l = 0, r = pairs.length - 1, res = "";
+        while (l <= r) {
+          const m = (l + r) >> 1;
+          if (pairs[m][0] <= ts) { res = pairs[m][1]; l = m + 1; } else { r = m - 1; }
+        }
+        f.add(`get("${key}", t=${ts}): binary search the history [${pairs.map(([t]) => "t" + t).join(", ")}] for the last timestamp ≤ ${ts} → ${res ? `"${res}"` : '"" (nothing that early)'}.`, 20,
+          [S({ [key]: res ? "g" : "r" })]);
+      }
+    }
+    f.add(`set is O(1) amortized; get is O(log n) per key. No sorting ever needed.`, 20, [S()], true);
+    return f;
+  },
+};
+
+// ------------------------------------------------ Median of Two Sorted Arrays
+VIS["median-of-two-sorted-arrays"] = {
+  inputs: [
+    { name: "A", label: "A (sorted)", type: "arr", def: "[1, 3, 8, 9, 15]", max: 8, min: 1 },
+    { name: "B", label: "B (sorted)", type: "arr", def: "[7, 11, 18, 19, 21, 25]", max: 8, min: 1 },
+  ],
+  code: `def findMedianSortedArrays(A, B):
+    if len(A) > len(B):
+        A, B = B, A
+    total = len(A) + len(B)
+    half = total // 2
+    l, r = 0, len(A)
+    while True:
+        i = (l + r) // 2   # size of A's left part
+        j = half - i       # size of B's left part
+        Aleft  = A[i-1] if i > 0 else -inf
+        Aright = A[i]   if i < len(A) else inf
+        Bleft  = B[j-1] if j > 0 else -inf
+        Bright = B[j]   if j < len(B) else inf
+        if Aleft <= Bright and Bleft <= Aright:
+            if total % 2:
+                return min(Aright, Bright)
+            return (max(Aleft, Bleft) +
+                    min(Aright, Bright)) / 2
+        if Aleft > Bright:
+            r = i - 1
+        else:
+            l = i + 1`,
+  gen(A, B) {
+    const f = mkFrames();
+    A = [...A].sort((a, b) => a - b);
+    B = [...B].sort((a, b) => a - b);
+    if (A.length > B.length) [A, B] = [B, A];
+    const total = A.length + B.length;
+    const half = total >> 1;
+    let l = 0, r = A.length;
+    const view = (i, j, cls) => [
+      { t: "arr", label: `A (left part = first ${i})`, v: A, hl: Object.fromEntries(A.map((_, x) => [x, x < i ? (cls || "p") : undefined]).filter(([, c]) => c)) },
+      { t: "arr", label: `B (left part = first ${j})`, v: B, hl: Object.fromEntries(B.map((_, x) => [x, x < j ? (cls || "y") : undefined]).filter(([, c]) => c)) },
+    ];
+    const fmt = x => (x === -Infinity ? "-∞" : x === Infinity ? "+∞" : x);
+    f.add(`The median splits the ${total} values into halves of ${half}. Binary search how many of those ${half} come from A — B's share follows automatically.`, 5, view(0, half));
+    let guard = 0;
+    while (guard++ < 20) {
+      const i = (l + r) >> 1;
+      const j = half - i;
+      const Aleft = i > 0 ? A[i - 1] : -Infinity;
+      const Aright = i < A.length ? A[i] : Infinity;
+      const Bleft = j > 0 ? B[j - 1] : -Infinity;
+      const Bright = j < B.length ? B[j] : Infinity;
+      const V = { t: "vars", entries: [["Aleft", fmt(Aleft)], ["Aright", fmt(Aright)], ["Bleft", fmt(Bleft)], ["Bright", fmt(Bright)]] };
+      if (Aleft <= Bright && Bleft <= Aright) {
+        const ans = total % 2 ? Math.min(Aright, Bright) : (Math.max(Aleft, Bleft) + Math.min(Aright, Bright)) / 2;
+        f.add(`Partition (${i} | ${j}) is valid: every left value ≤ every right value. ${total % 2 ? `Odd total → median is min of the rights: ${ans}.` : `Even total → average the middle pair: ${ans}.`}`, 16,
+          [...view(i, j, "g"), V], true);
+        return f;
+      }
+      if (Aleft > Bright) {
+        f.add(`Try ${i} from A, ${j} from B: Aleft ${fmt(Aleft)} > Bright ${fmt(Bright)} — A contributes too much. Shrink A's share.`, 20, [...view(i, j), V]);
+        r = i - 1;
+      } else {
+        f.add(`Try ${i} from A, ${j} from B: Bleft ${fmt(Bleft)} > Aright ${fmt(Aright)} — A contributes too little. Grow A's share.`, 22, [...view(i, j), V]);
+        l = i + 1;
+      }
+    }
+    return f;
+  },
+};
+
+// ----------------------------------------------------------------- Valid Sudoku
+VIS["valid-sudoku"] = {
+  inputs: [],
+  code: `def isValidSudoku(board):
+    rows = defaultdict(set)
+    cols = defaultdict(set)
+    boxes = defaultdict(set)  # key: (r//3, c//3)
+    for r in range(9):
+        for c in range(9):
+            v = board[r][c]
+            if v == ".":
+                continue
+            if (v in rows[r] or v in cols[c]
+                    or v in boxes[(r//3, c//3)]):
+                return False
+            rows[r].add(v)
+            cols[c].add(v)
+            boxes[(r//3, c//3)].add(v)
+    return True`,
+  gen() {
+    const f = mkFrames();
+    const board = [
+      ["5","3",".",".","7",".",".",".","."],
+      ["6",".",".","1","9","5",".",".","."],
+      [".","9","8",".",".",".",".","6","."],
+      ["8",".",".",".","6",".",".",".","3"],
+      ["4",".",".","8",".","3",".",".","1"],
+      ["7",".",".",".","2",".",".",".","6"],
+      [".","6",".",".",".",".","2","8","."],
+      [".",".",".","4","1","9",".",".","5"],
+      [".",".",".",".","8",".",".","7","9"],
+    ];
+    const rows = Array.from({ length: 9 }, () => new Set());
+    const cols = Array.from({ length: 9 }, () => new Set());
+    const boxes = Array.from({ length: 9 }, () => new Set());
+    const G = (r, c, cls) => {
+      const hl = {};
+      if (r >= 0) {
+        for (let x = 0; x < 9; x++) { hl[r + "," + x] = "w"; hl[x + "," + c] = "w"; }
+        const br = Math.floor(r / 3) * 3, bc = Math.floor(c / 3) * 3;
+        for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) hl[(br + i) + "," + (bc + j)] = "w";
+        hl[r + "," + c] = cls;
+      }
+      return { t: "grid", label: "board (outlined = this cell's row, column, and box)", v: board, hl };
+    };
+    f.add(`One scan is enough: for every filled cell, remember its digit per-row, per-column, and per-3×3-box in hash sets. A repeat in any set is a violation.`, 4, [G(-1)]);
+    let step = 0;
+    for (let r = 0; r < 9; r++) {
+      for (let c = 0; c < 9; c++) {
+        const v = board[r][c];
+        if (v === ".") continue;
+        const box = Math.floor(r / 3) * 3 + Math.floor(c / 3);
+        if (rows[r].has(v) || cols[c].has(v) || boxes[box].has(v)) {
+          f.add(`(${r}, ${c}) = ${v}: already seen in this ${rows[r].has(v) ? "row" : cols[c].has(v) ? "column" : "box"} — invalid board. Return False.`, 12, [G(r, c, "r")], true);
+          return f;
+        }
+        rows[r].add(v); cols[c].add(v); boxes[box].add(v);
+        step++;
+        if (step % 5 === 0 || step <= 3) {
+          f.add(`(${r}, ${c}) = ${v}: new to row ${r}, column ${c}, and box ${box} — record it in all three sets. (${step} cells checked)`, 13, [G(r, c, "g")]);
+        }
+      }
+    }
+    f.add(`All 30 filled cells checked with zero repeats in any row, column, or box — the board is valid. O(81) = O(1).`, 16, [G(-1)], true);
+    return f;
+  },
+};
