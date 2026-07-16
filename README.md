@@ -11,11 +11,12 @@ starting with the [NeetCode 150](https://neetcode.io/practice/practice/neetcode1
   - the optimal approach explained in one sentence
   - time and space complexity
   - a link to the problem on LeetCode
-- **Interactive step-by-step visualizations** for a growing set of problems (75 so far, spanning every category).
-  Each one animates the optimal algorithm running on real input:
+- **Interactive step-by-step visualizations for all 150 problems** — every problem animates its
+  optimal algorithm running on real input:
   - play / pause / step / seek / speed controls
   - the Python solution shown alongside, with the **current line highlighted at every step**
-  - animated arrays, bars, hash maps, sets, stacks, linked lists, binary trees, and grids
+  - animated arrays, bars, hash maps, sets, stacks, linked lists, binary trees, grids,
+    interval timelines, and 2-D DP tables
   - editable inputs — run the algorithm on your own data
 - Search and "interactive only" filtering on the home page.
 
@@ -40,21 +41,19 @@ A deploy workflow is included at `.github/workflows/pages.yml`. To get a live UR
 
 The site will be published at `https://<user>.github.io/algo-viz/`.
 
-## Currently visualized problems
+## Coverage
 
-75 of the 150 problems have interactive visualizations, covering every category:
-arrays & hashing, two pointers (complete), sliding window (complete), stack (complete),
-binary search, linked lists, trees, backtracking, graphs, 1-D and 2-D DP, greedy,
-intervals (complete), math & geometry, and bit manipulation.
-
-Use the **"Interactive only"** filter on the site's home page for the full list.
+**All 150 problems are visualized** — every category is complete: arrays & hashing, two pointers,
+sliding window, stack, binary search, linked lists, trees, tries, heaps, backtracking, graphs,
+advanced graphs, 1-D and 2-D DP, greedy, intervals, math & geometry, and bit manipulation.
 
 ## Adding a new visualizer
 
 Everything lives in `js/`:
 
 - `data.js` — the 150-problem catalog (title, difficulty, approach, complexity).
-- `engine.js` — generic renderers (array, bars, map, set, stack, vars, linked list, tree, grid, interval timeline) and the playback engine.
+- `statements.js` — one-line problem statements for each problem.
+- `engine.js` — generic renderers (array, bars, map, set, stack, vars, linked list, tree, grid, interval timeline, 2-D DP table) and the playback engine.
 - `visualizers.js` — one entry per visualized problem: `VIS["<slug>"] = { inputs, code, gen }`,
   where `gen(...)` returns a list of frames `{ d: description, l: code line, c: [components] }`.
 - `app.js` — hash router and pages.

@@ -6467,3 +6467,481 @@ VIS["regular-expression-matching"] = {
     return f;
   },
 };
+
+// ============================ batch 15: greedy, intervals, math, bits ============================
+
+// ------------------------------------------------------------------ Jump Game II
+VIS["jump-game-ii"] = {
+  inputs: [{ name: "nums", label: "nums (max jump lengths)", type: "arr", def: "[2, 3, 1, 1, 4]", max: 12, min: 1 }],
+  code: `def jump(nums):
+    jumps = 0
+    cur_end = 0
+    farthest = 0
+    for i in range(len(nums) - 1):
+        farthest = max(farthest, i + nums[i])
+        if i == cur_end:
+            jumps += 1
+            cur_end = farthest
+    return jumps`,
+  gen(nums) {
+    const f = mkFrames();
+    nums = nums.map(x => Math.max(0, x));
+    let jumps = 0, curEnd = 0, farthest = 0;
+    const A = (i, extra) => {
+      const hl = {};
+      for (let x = 0; x <= Math.min(curEnd, nums.length - 1); x++) hl[x] = "w";
+      Object.assign(hl, extra || {});
+      return { t: "arr", label: "nums (outlined = reachable in current jumps)", v: nums, hl, ptrs: { [i]: "i", ...(farthest <= nums.length - 1 && farthest !== i ? { [farthest]: "far" } : {}) } };
+    };
+    const V = () => ({ t: "vars", entries: [["jumps", jumps], ["cur_end", curEnd], ["farthest", farthest]] });
+    f.add(`BFS in disguise: each "level" is what's reachable in one more jump. Within the current level, compute the farthest next reach; crossing the boundary costs one jump.`, 2, [A(0), V()]);
+    for (let i = 0; i < nums.length - 1; i++) {
+      farthest = Math.max(farthest, i + nums[i]);
+      f.add(`At ${i}: from here you can reach index ${i + nums[i]}, so farthest = ${farthest}.`, 6, [A(i, { [i]: "p" }), V()]);
+      if (i === curEnd) {
+        jumps++;
+        curEnd = farthest;
+        f.add(`Hit the current level's boundary — take a jump (${jumps} total). The next level now extends to index ${curEnd}.`, 9, [A(i, { [i]: "g" }), V()]);
+      }
+    }
+    f.add(`Reached the end in ${jumps} jump(s) — the minimum possible. O(n), no DP table needed.`, 10, [A(nums.length - 1, { [nums.length - 1]: "g" }), V()], true);
+    return f;
+  },
+};
+
+// ------------------------------------------------------------ Hand of Straights
+VIS["hand-of-straights"] = {
+  inputs: [
+    { name: "hand", label: "hand", type: "arr", def: "[1, 2, 3, 6, 2, 3, 4, 7, 8]", max: 12, min: 1 },
+    { name: "groupSize", label: "groupSize", type: "int", def: "3", min: 1, max: 5 },
+  ],
+  code: `def isNStraightHand(hand, groupSize):
+    if len(hand) % groupSize:
+        return False
+    count = Counter(hand)
+    for start in sorted(count):
+        c = count[start]
+        if c > 0:
+            for x in range(start, start + groupSize):
+                if count[x] < c:
+                    return False
+                count[x] -= c
+    return True`,
+  gen(hand, groupSize) {
+    const f = mkFrames();
+    const H = hl => ({ t: "arr", label: "hand", v: hand, hl });
+    if (hand.length % groupSize !== 0) {
+      f.add(`${hand.length} cards can't split into groups of ${groupSize}. Return False.`, 3, [H({})], true);
+      return f;
+    }
+    const count = {};
+    hand.forEach(c => (count[c] = (count[c] || 0) + 1));
+    const C = hl => ({ t: "kv", label: "counts", entries: kvEntries(count), hl });
+    f.add(`Greedy: the smallest remaining card MUST start a straight. Build ${groupSize} consecutive cards from it, decrementing counts.`, 5, [C()]);
+    const keys = () => Object.keys(count).map(Number).filter(k => count[k] > 0).sort((a, b) => a - b);
+    let ks = keys();
+    while (ks.length) {
+      const start = ks[0];
+      const c = count[start];
+      const need = [];
+      for (let x = start; x < start + groupSize; x++) need.push(x);
+      let ok = true;
+      for (const x of need) if ((count[x] || 0) < c) { ok = false; break; }
+      if (!ok) {
+        const missing = need.find(x => (count[x] || 0) < c);
+        f.add(`Smallest card ${start} (×${c}) needs a straight ${need.join("-")}, but there aren't enough ${missing}'s. Impossible — return False.`, 10, [C({ [start]: "r", ...(count[missing] ? { [missing]: "r" } : {}) })], true);
+        return f;
+      }
+      need.forEach(x => (count[x] -= c));
+      f.add(`Form ${c} straight(s) ${need.join("-")} starting at ${start}. Decrement those counts.`, 11, [C(Object.fromEntries(need.map(x => [x, "g"])))]);
+      ks = keys();
+    }
+    f.add(`Every card consumed into valid consecutive groups — return True. O(n log n).`, 12, [C()], true);
+    return f;
+  },
+};
+
+// --------------------------------------------- Merge Triplets to Form Target
+VIS["merge-triplets-to-form-target-triplet"] = {
+  inputs: [],
+  code: `def mergeTriplets(triplets, target):
+    good = set()
+    for t in triplets:
+        if (t[0] <= target[0] and t[1] <= target[1]
+                and t[2] <= target[2]):
+            for i in range(3):
+                if t[i] == target[i]:
+                    good.add(i)
+    return len(good) == 3`,
+  gen() {
+    const f = mkFrames();
+    const triplets = [[2, 5, 3], [1, 8, 4], [1, 7, 5]];
+    const target = [2, 7, 5];
+    const T = hl => ({ t: "set", label: "triplets", v: triplets.map(t => `[${t.join(",")}]`), hl });
+    const G = hl => ({ t: "arr", label: "target positions matched", v: target.map((v, i) => `pos${i}=${v}`), hl });
+    const good = new Set();
+    f.add(`Merging takes element-wise MAXES. So a triplet is safe to merge only if it never exceeds the target anywhere; among safe ones, we need each position hit exactly.`, 2, [T({}), G({ target: undefined })]);
+    triplets.forEach((t, i) => {
+      const safe = t[0] <= target[0] && t[1] <= target[1] && t[2] <= target[2];
+      if (!safe) {
+        f.add(`[${t.join(",")}] exceeds the target somewhere — merging it would overshoot forever. Discard it.`, 4, [T({ [i]: "r" }), G(Object.fromEntries([...good].map(x => [`pos${x}=${target[x]}`, "g"])))]);
+        return;
+      }
+      const hits = [];
+      for (let k = 0; k < 3; k++) if (t[k] === target[k]) { good.add(k); hits.push(k); }
+      f.add(`[${t.join(",")}] stays within the target${hits.length ? ` and matches position(s) ${hits.join(", ")} exactly` : ""}. Good positions so far: {${[...good].sort().join(", ")}}.`, 8, [T({ [i]: "g" }), G(Object.fromEntries([...good].map(x => [`pos${x}=${target[x]}`, "g"])))]);
+    });
+    f.add(good.size === 3 ? `All 3 positions were hit by safe triplets — merging them yields the target exactly. Return True.` : `Only ${good.size}/3 positions achievable — return False.`, 9, [T({}), G(Object.fromEntries([...good].map(x => [`pos${x}=${target[x]}`, "g"])))], true);
+    return f;
+  },
+};
+
+// --------------------------------------------------- Valid Parenthesis String
+VIS["valid-parenthesis-string"] = {
+  inputs: [{ name: "s", label: "s (with * wildcards)", type: "str", def: "(*))", max: 12 }],
+  code: `def checkValidString(s):
+    lo, hi = 0, 0   # range of possible open counts
+    for c in s:
+        if c == "(":
+            lo += 1; hi += 1
+        elif c == ")":
+            lo -= 1; hi -= 1
+        else:           # '*': ( or ) or nothing
+            lo -= 1; hi += 1
+        if hi < 0:
+            return False       # too many ')'
+        lo = max(lo, 0)
+    return lo == 0`,
+  gen(s) {
+    const f = mkFrames();
+    let lo = 0, hi = 0;
+    const S = (i, cls) => ({ t: "arr", label: "s", v: [...s], hl: i >= 0 ? { [i]: cls } : {}, ch: true });
+    const V = () => ({ t: "vars", entries: [["lo (min open)", lo], ["hi (max open)", hi]] });
+    f.add(`Track a RANGE of possible open-paren counts. '*' widens it (could be '(', ')', or nothing). Valid if 0 stays reachable and lo returns to 0.`, 2, [S(-1), V()]);
+    for (let i = 0; i < s.length; i++) {
+      const c = s[i];
+      if (c === "(") { lo++; hi++; f.add(`'(' — both bounds rise: lo=${lo}, hi=${hi}.`, 6, [S(i, "p"), V()]); }
+      else if (c === ")") { lo--; hi--; f.add(`')' — both bounds fall: lo=${lo}, hi=${hi}.`, 8, [S(i, "y"), V()]); }
+      else { lo--; hi++; f.add(`'*' — could be '(', ')', or empty, so the range widens: lo=${lo}, hi=${hi}.`, 10, [S(i, "g"), V()]); }
+      if (hi < 0) {
+        f.add(`hi < 0 — even treating every '*' as '(', there are too many ')'. Return False.`, 12, [S(i, "r"), V()], true);
+        return f;
+      }
+      if (lo < 0) { lo = 0; }
+    }
+    f.add(lo === 0 ? `lo = 0 is reachable at the end — a valid assignment of '*' exists. Return True. O(n), O(1).` : `lo = ${lo} > 0 — unmatched '(' remain no matter what. Return False.`, 13, [S(-1), V()], true);
+    return f;
+  },
+};
+
+// ----------------------------------- Minimum Interval to Include Each Query
+VIS["minimum-interval-to-include-each-query"] = {
+  inputs: [],
+  code: `def minInterval(intervals, queries):
+    intervals.sort()
+    res = {}
+    heap = []   # (size, end)
+    i = 0
+    for q in sorted(queries):
+        while i < len(intervals) and intervals[i][0] <= q:
+            l, r = intervals[i]
+            heappush(heap, (r - l + 1, r))
+            i += 1
+        while heap and heap[0][1] < q:
+            heappop(heap)      # expired: ends before q
+        res[q] = heap[0][0] if heap else -1
+    return [res[q] for q in queries]`,
+  gen() {
+    const f = mkFrames();
+    const intervals = [[1, 4], [2, 4], [3, 6], [4, 4]].sort((a, b) => a[0] - b[0]);
+    const queries = [2, 3, 4, 5];
+    const res = {};
+    let heap = []; // [size, end]
+    let i = 0;
+    const IV = hlIdx => [{ t: "iv", label: "intervals (sorted by start)", v: intervals.map(([s, e], k) => ({ s, e, cls: hlIdx === k ? "p" : (k < i ? "d" : undefined) })) }];
+    const H = () => ({ t: "set", label: "heap (size, end) — smallest size on top", v: heap.slice().sort((a, b) => a[0] - b[0]).map(([sz, e]) => `sz${sz}·end${e}`) });
+    const R = () => ({ t: "kv", label: "answer per query", entries: Object.entries(res).map(([q, v]) => [`q=${q}`, v]) });
+    f.add(`Process queries in increasing order. A min-heap keyed by interval SIZE gives the smallest containing interval; evict ones that ended before the query.`, 5, [...IV(), H(), R()]);
+    for (const q of [...queries].sort((a, b) => a - b)) {
+      while (i < intervals.length && intervals[i][0] <= q) {
+        const [l, r] = intervals[i];
+        heap.push([r - l + 1, r]);
+        f.add(`Query ${q}: interval [${l},${r}] starts ≤ ${q}, so it's a candidate — push (size ${r - l + 1}, end ${r}).`, 9, [...IV(i), H(), R()]);
+        i++;
+      }
+      heap.sort((a, b) => a[0] - b[0]);
+      while (heap.length && heap[0][1] < q) {
+        const [sz, e] = heap[0];
+        heap.shift();
+        f.add(`Query ${q}: top interval ends at ${e} < ${q} — it can't contain ${q}, evict it.`, 12, [...IV(), H(), R()]);
+        heap.sort((a, b) => a[0] - b[0]);
+      }
+      res[q] = heap.length ? heap[0][0] : -1;
+      f.add(`Query ${q}: smallest valid interval has size ${res[q] === -1 ? "— none" : res[q]}.`, 13, [...IV(), H(), R()]);
+    }
+    f.add(`Answers: [${queries.map(q => res[q]).join(", ")}]. Each interval enters/leaves the heap once → O((n+q) log n).`, 14, [...IV(), H(), R()], true);
+    return f;
+  },
+};
+
+// ------------------------------------------------------------ Set Matrix Zeroes
+VIS["set-matrix-zeroes"] = {
+  inputs: [],
+  code: `def setZeroes(matrix):
+    rows, cols = len(matrix), len(matrix[0])
+    first_row_zero = any(matrix[0][c] == 0
+                         for c in range(cols))
+    for r in range(1, rows):        # mark using row 0 / col 0
+        for c in range(cols):
+            if matrix[r][c] == 0:
+                matrix[0][c] = 0
+                matrix[r][0] = 0
+    for r in range(1, rows):        # apply marks
+        for c in range(1, cols):
+            if matrix[0][c] == 0 or matrix[r][0] == 0:
+                matrix[r][c] = 0
+    if matrix[0][0] == 0:
+        for r in range(rows): matrix[r][0] = 0
+    if first_row_zero:
+        for c in range(cols): matrix[0][c] = 0`,
+  gen() {
+    const f = mkFrames();
+    const matrix = [[1, 1, 1], [1, 0, 1], [1, 1, 1]];
+    const rows = matrix.length, cols = matrix[0].length;
+    const G = hl => ({ t: "grid", label: "matrix (row 0 & col 0 = the marker strips)", v: matrix, hl });
+    f.add(`O(1) space trick: use the first row and first column THEMSELVES as the "this row/col must zero" markers, instead of separate arrays.`, 2, [G({ "0,0": "p" })]);
+    const firstRowZero = matrix[0].some(v => v === 0);
+    const marks = [];
+    for (let r = 1; r < rows; r++) for (let c = 0; c < cols; c++) {
+      if (matrix[r][c] === 0) {
+        matrix[0][c] = 0;
+        matrix[r][0] = 0;
+        marks.push([r, c]);
+      }
+    }
+    f.add(`Found a 0 at (1,1) — record it by zeroing its row's marker (1,0) and column's marker (0,1).`, 8, [G({ "1,1": "r", "1,0": "y", "0,1": "y" })]);
+    for (let r = 1; r < rows; r++) for (let c = 1; c < cols; c++) {
+      if (matrix[0][c] === 0 || matrix[r][0] === 0) matrix[r][c] = 0;
+    }
+    f.add(`Second pass: any interior cell whose row-marker or column-marker is 0 gets zeroed.`, 13, [G(Object.fromEntries([].concat(...matrix.map((row, r) => row.map((v, c) => (v === 0 && r > 0 && c > 0 ? [r + "," + c, "g"] : null)).filter(Boolean)))))]);
+    if (matrix[0][0] === 0) for (let r = 0; r < rows; r++) matrix[r][0] = 0;
+    if (firstRowZero) for (let c = 0; c < cols; c++) matrix[0][c] = 0;
+    f.add(`Finally handle row 0 and column 0 from their saved flags. Done in O(m·n) time, O(1) extra space.`, 16, [G(Object.fromEntries([].concat(...matrix.map((row, r) => row.map((v, c) => (v === 0 ? [r + "," + c, "r"] : null)).filter(Boolean)))))], true);
+    return f;
+  },
+};
+
+// -------------------------------------------------------------------- Pow(x, n)
+VIS["powx-n"] = {
+  inputs: [
+    { name: "x", label: "x", type: "int", def: "2", min: -10, max: 10 },
+    { name: "n", label: "n (exponent)", type: "int", def: "10", min: -16, max: 16 },
+  ],
+  code: `def myPow(x, n):
+    if n < 0:
+        x, n = 1 / x, -n
+    result = 1
+    while n > 0:
+        if n & 1:           # odd exponent
+            result *= x
+        x *= x              # square the base
+        n >>= 1             # halve the exponent
+    return result`,
+  gen(x, n) {
+    const f = mkFrames();
+    let base = x, exp = n, result = 1;
+    if (exp < 0) { base = 1 / x; exp = -exp; }
+    const round = v => Math.round(v * 1e6) / 1e6;
+    const V = () => ({ t: "vars", entries: [["base", round(base)], ["exp (binary)", exp.toString(2)], ["result", round(result)]] });
+    f.add(`Fast exponentiation: x^10 = x^8 · x^2. Read the exponent's BITS — square the base each step, multiply into the result only where a bit is 1.`, 4, [V()]);
+    if (n < 0) f.add(`n was negative, so x → 1/x = ${round(base)} and exponent → ${exp}.`, 3, [V()]);
+    while (exp > 0) {
+      if (exp & 1) {
+        result *= base;
+        f.add(`Low bit of exponent is 1 → multiply result by current base ${round(base)} → result = ${round(result)}.`, 7, [V()]);
+      } else {
+        f.add(`Low bit is 0 → skip the multiply this round.`, 6, [V()]);
+      }
+      base *= base;
+      exp >>= 1;
+      f.add(`Square the base (→ ${round(base)}) and shift the exponent right (→ binary ${exp.toString(2)}).`, 9, [V()]);
+    }
+    f.add(`${x}^${n} = ${round(result)}. Only ${Math.abs(n).toString(2).length} iterations — O(log n).`, 10, [V()], true);
+    return f;
+  },
+};
+
+// ------------------------------------------------------------ Multiply Strings
+VIS["multiply-strings"] = {
+  inputs: [
+    { name: "a", label: "num1", type: "str", def: "123", max: 6 },
+    { name: "b", label: "num2", type: "str", def: "45", max: 6 },
+  ],
+  code: `def multiply(num1, num2):
+    if num1 == "0" or num2 == "0":
+        return "0"
+    res = [0] * (len(num1) + len(num2))
+    for i in range(len(num1) - 1, -1, -1):
+        for j in range(len(num2) - 1, -1, -1):
+            mul = int(num1[i]) * int(num2[j])
+            p1, p2 = i + j, i + j + 1
+            total = mul + res[p2]
+            res[p2] = total % 10
+            res[p1] += total // 10
+    result = "".join(map(str, res)).lstrip("0")
+    return result or "0"`,
+  gen(a, b) {
+    const f = mkFrames();
+    if (!/^\d+$/.test(a) || !/^\d+$/.test(b)) {
+      f.add(`Inputs must be non-negative integer strings. Adjust and re-run.`, 1, [{ t: "vars", entries: [["error", "digits only"] ] }], true);
+      return f;
+    }
+    const res = new Array(a.length + b.length).fill(0);
+    const R = hl => ({ t: "arr", label: "res (digit accumulator)", v: res, hl });
+    const A = i => ({ t: "arr", label: "num1", v: [...a], hl: i >= 0 ? { [i]: "p" } : {}, ch: true });
+    const B = j => ({ t: "arr", label: "num2", v: [...b], hl: j >= 0 ? { [j]: "y" } : {}, ch: true });
+    f.add(`Grade-school multiplication: digit i of num1 times digit j of num2 lands at result positions i+j and i+j+1 (tens and units).`, 4, [A(-1), B(-1), R({})]);
+    for (let i = a.length - 1; i >= 0; i--) {
+      for (let j = b.length - 1; j >= 0; j--) {
+        const mul = (+a[i]) * (+b[j]);
+        const p1 = i + j, p2 = i + j + 1;
+        const total = mul + res[p2];
+        res[p2] = total % 10;
+        res[p1] += Math.floor(total / 10);
+        f.add(`${a[i]} × ${b[j]} = ${mul}, plus carry at pos ${p2} → ${total}. Write ${total % 10} at ${p2}, carry ${Math.floor(total / 10)} to ${p1}.`, 10, [A(i), B(j), R({ [p1]: "p", [p2]: "g" })]);
+      }
+    }
+    const out = res.join("").replace(/^0+/, "") || "0";
+    f.add(`Strip leading zeros → "${out}". (${a} × ${b} = ${out}.) O(m·n).`, 13, [A(-1), B(-1), R(Object.fromEntries(res.map((_, k) => [k, "g"])))], true);
+    return f;
+  },
+};
+
+// --------------------------------------------------------------- Detect Squares
+VIS["detect-squares"] = {
+  inputs: [],
+  code: `class DetectSquares:
+    def __init__(self):
+        self.count = defaultdict(int)
+
+    def add(self, point):
+        self.count[tuple(point)] += 1
+
+    def count_squares(self, px, py):
+        total = 0
+        for (x, y), c in list(self.count.items()):
+            if abs(px - x) != abs(py - y) or px == x:
+                continue          # need a diagonal corner
+            total += (c * self.count[(px, y)]
+                        * self.count[(x, py)])
+        return total`,
+  gen() {
+    const f = mkFrames();
+    const pts = [[3, 10], [11, 2], [3, 2]];
+    const count = {};
+    pts.forEach(([x, y]) => (count[x + "," + y] = (count[x + "," + y] || 0) + 1));
+    const P = hl => ({ t: "set", label: "stored points", v: Object.keys(count).map(k => `(${k})`), hl });
+    f.add(`Add points to a frequency map. For a query point, scan stored points as the DIAGONAL corner — then the two side corners' counts multiply.`, 4, [P()]);
+    f.add(`add (3,10), (11,2), (3,2) — three points stored.`, 6, [P(Object.fromEntries(Object.keys(count).map(k => [`(${k})`, "p"])))]);
+    const [px, py] = [11, 10];
+    let total = 0;
+    f.add(`count(${px}, ${py}): look for a stored point that forms a square's diagonal with it (equal |dx| and |dy|, not the same column).`, 8, [P()]);
+    for (const key of Object.keys(count)) {
+      const [x, y] = key.split(",").map(Number);
+      if (Math.abs(px - x) !== Math.abs(py - y) || px === x) {
+        f.add(`(${x},${y}): |Δx|=${Math.abs(px - x)} ≠ |Δy|=${Math.abs(py - y)} (or same column) — not a diagonal corner. Skip.`, 10, [P({ [`(${key})`]: "d" })]);
+        continue;
+      }
+      const c2 = count[px + "," + y] || 0, c3 = count[x + "," + py] || 0;
+      const add = count[key] * c2 * c3;
+      total += add;
+      f.add(`(${x},${y}) is a diagonal corner! Need corners (${px},${y})×${c2} and (${x},${py})×${c3} → ${count[key]}·${c2}·${c3} = ${add} square(s).`, 13, [P({ [`(${key})`]: add ? "g" : "y" })]);
+    }
+    f.add(`Total squares with corner (${px},${py}): ${total}. Each query is O(number of stored points).`, 14, [P()], true);
+    return f;
+  },
+};
+
+// ------------------------------------------------------------- Number of 1 Bits
+VIS["number-of-1-bits"] = {
+  inputs: [{ name: "n", label: "n", type: "int", def: "11", min: 0, max: 9999 }],
+  code: `def hammingWeight(n):
+    count = 0
+    while n:
+        n &= n - 1     # clears the lowest set bit
+        count += 1
+    return count`,
+  gen(n) {
+    const f = mkFrames();
+    const bits = x => (x >>> 0).toString(2).padStart(8, "0");
+    let count = 0, cur = n;
+    const V = () => ({ t: "vars", entries: [["n (binary)", bits(cur)], ["count", count]] });
+    f.add(`Brian Kernighan's trick: n & (n−1) erases exactly the LOWEST set bit. Loop until n is 0, counting each erasure — runs once per set bit, not per bit.`, 3, [V()]);
+    while (cur) {
+      const before = cur;
+      cur &= cur - 1;
+      count++;
+      f.add(`${bits(before)} & ${bits(before - 1)} = ${bits(cur)} — cleared the lowest 1 (count ${count}).`, 4, [V()]);
+    }
+    f.add(`n reached 0 after ${count} erasures — so ${n} has ${count} set bit(s).`, 6, [V()], true);
+    return f;
+  },
+};
+
+// ---------------------------------------------------------------- Reverse Bits
+VIS["reverse-bits"] = {
+  inputs: [{ name: "n", label: "n", type: "int", def: "43261596", min: 0, max: 2000000000 }],
+  code: `def reverseBits(n):
+    result = 0
+    for _ in range(32):
+        result = (result << 1) | (n & 1)
+        n >>= 1
+    return result`,
+  gen(n) {
+    const f = mkFrames();
+    const bits = x => (x >>> 0).toString(2).padStart(32, "0");
+    let cur = n >>> 0, result = 0;
+    const V = () => ({ t: "vars", entries: [["n (remaining)", bits(cur)], ["result", bits(result)]] });
+    f.add(`Peel n's bits off the RIGHT and stack them onto result from the right too — since result shifts left each step, they land in reversed order. 32 steps.`, 3, [V()]);
+    for (let i = 0; i < 32; i++) {
+      const bit = cur & 1;
+      result = ((result << 1) | bit) >>> 0;
+      cur >>>= 1;
+      if (i < 3 || i === 31) f.add(`Step ${i + 1}: pull n's low bit (${bit}), shift result left and append it. n shifts right.`, 4, [V()]);
+      else if (i === 3) f.add(`… steps 5–31 continue the same peel-and-stack …`, 4, [V()]);
+    }
+    f.add(`After 32 steps every bit is mirrored: ${n} → ${result >>> 0}. O(1) — always exactly 32 iterations.`, 6, [V()], true);
+    return f;
+  },
+};
+
+// ---------------------------------------------------------- Sum of Two Integers
+VIS["sum-of-two-integers"] = {
+  inputs: [
+    { name: "a", label: "a", type: "int", def: "5", min: 0, max: 255 },
+    { name: "b", label: "b", type: "int", def: "3", min: 0, max: 255 },
+  ],
+  code: `def getSum(a, b):
+    while b != 0:
+        carry = (a & b) << 1   # where carries go
+        a = a ^ b              # add without carrying
+        b = carry              # now add the carry in
+    return a`,
+  gen(a0, b0) {
+    const f = mkFrames();
+    const bits = x => (x >>> 0).toString(2).padStart(8, "0");
+    let a = a0, b = b0;
+    const V = () => ({ t: "vars", entries: [["a (binary)", bits(a)], ["b / carry", bits(b)]] });
+    f.add(`Addition without '+': XOR adds each bit but ignores carries; AND-then-shift finds exactly where the carries belong. Repeat until no carry remains.`, 2, [V()]);
+    let guard = 0;
+    while (b !== 0 && guard++ < 20) {
+      const carry = (a & b) << 1;
+      const sum = a ^ b;
+      f.add(`a ^ b = ${bits(sum)} (sum ignoring carries); (a & b) << 1 = ${bits(carry >>> 0)} (the carries). Feed the carry back in as the new b.`, 5, [V()]);
+      a = sum;
+      b = carry;
+    }
+    f.add(`b (carry) is 0 — nothing left to add. a = ${a} = ${a0} + ${b0}. O(1) for fixed-width integers.`, 6, [V()], true);
+    return f;
+  },
+};

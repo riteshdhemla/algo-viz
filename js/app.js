@@ -11,9 +11,9 @@ function homePage() {
   app.innerHTML = `
     <section class="hero">
       <h1>Visualize the optimal solution to every problem</h1>
-      <p>The ${total} problems of the NeetCode 150, each with its best-known approach and complexity.
-         Problems marked <span class="badge viz">▶ interactive</span> have a step-by-step animation of the
-         optimal algorithm running on real input — with the code line highlighted at every step.</p>
+      <p>All ${total} problems of the NeetCode 150, each with its best-known approach, complexity, and a
+         <span class="badge viz">▶ interactive</span> step-by-step animation of the optimal algorithm
+         running on real input — with the code line highlighted at every step.</p>
       <div class="stats">
         <div class="stat"><b>${total}</b> problems</div>
         <div class="stat"><b>${DATA.length}</b> categories</div>
