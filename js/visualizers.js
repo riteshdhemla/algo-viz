@@ -5539,3 +5539,309 @@ VIS["word-ladder"] = {
     return f;
   },
 };
+
+// ============================ batch 12: advanced graphs ============================
+
+// ------------------------------------------------- Min Cost to Connect All Points
+VIS["min-cost-to-connect-all-points"] = {
+  inputs: [],
+  code: `def minCostConnectPoints(points):
+    n = len(points)
+    dist = [float("inf")] * n
+    dist[0] = 0
+    in_mst = [False] * n
+    total = 0
+    for _ in range(n):
+        u = min((d, i) for i, d in enumerate(dist)
+                if not in_mst[i])[1]
+        in_mst[u] = True
+        total += dist[u]
+        for v in range(n):
+            if not in_mst[v]:
+                d = (abs(points[u][0] - points[v][0])
+                   + abs(points[u][1] - points[v][1]))
+                dist[v] = min(dist[v], d)
+    return total`,
+  gen() {
+    const f = mkFrames();
+    const points = [[0, 0], [2, 2], [3, 10], [5, 2], [7, 0]];
+    const n = points.length;
+    const dist = new Array(n).fill(Infinity);
+    dist[0] = 0;
+    const inMst = new Array(n).fill(false);
+    let total = 0;
+    const md = (a, b) => Math.abs(points[a][0] - points[b][0]) + Math.abs(points[a][1] - points[b][1]);
+    const P = hl => ({ t: "arr", label: "points (x, y)", v: points.map(([x, y]) => `(${x},${y})`), hl });
+    const D = hl => ({ t: "arr", label: "dist (cheapest edge into the MST)", v: dist.map(d => (d === Infinity ? "∞" : d)), hl });
+    const V = () => ({ t: "vars", entries: [["total cost", total]] });
+    f.add(`Prim's MST: grow a tree from point 0, each round pulling in the closest point NOT yet in the tree via its cheapest connecting edge.`, 3, [P({}), D({ 0: "p" }), V()]);
+    for (let k = 0; k < n; k++) {
+      let u = -1, best = Infinity;
+      for (let i = 0; i < n; i++) if (!inMst[i] && dist[i] < best) { best = dist[i]; u = i; }
+      inMst[u] = true;
+      total += dist[u];
+      f.add(`Cheapest reachable point is ${u} = (${points[u].join(",")}) at cost ${dist[u]} — add it to the tree (total ${total}).`, 11, [P({ [u]: "g" }), D({ [u]: "g" }), V()]);
+      const updated = [];
+      for (let v = 0; v < n; v++) {
+        if (!inMst[v]) {
+          const d = md(u, v);
+          if (d < dist[v]) { dist[v] = d; updated.push(v); }
+        }
+      }
+      if (updated.length) f.add(`Point ${u} offers cheaper connections to point(s) ${updated.join(", ")} — relax their dist.`, 16, [P({ [u]: "p" }), D(Object.fromEntries(updated.map(v => [v, "y"]))), V()]);
+    }
+    f.add(`All points connected for a minimum total cost of ${total}. O(n²) Prim's — ideal for dense point graphs.`, 17, [P({}), D({}), V()], true);
+    return f;
+  },
+};
+
+// ------------------------------------------------------------ Network Delay Time
+VIS["network-delay-time"] = {
+  inputs: [],
+  code: `def networkDelayTime(times, n, k):
+    adj = defaultdict(list)
+    for u, v, w in times:
+        adj[u].append((v, w))
+    dist = {}
+    heap = [(0, k)]        # (time so far, node)
+    while heap:
+        t, u = heappop(heap)
+        if u in dist:
+            continue       # already finalized
+        dist[u] = t
+        for v, w in adj[u]:
+            if v not in dist:
+                heappush(heap, (t + w, v))
+    return max(dist.values()) if len(dist) == n else -1`,
+  gen() {
+    const f = mkFrames();
+    const times = [[1, 2, 1], [1, 3, 4], [2, 3, 1], [3, 4, 2]];
+    const n = 4, k = 1;
+    const adj = {};
+    for (const [u, v, w] of times) (adj[u] = adj[u] || []).push([v, w]);
+    const dist = {};
+    let heap = [[0, k]];
+    const A = () => ({ t: "kv", label: "edges (node → [(dest, weight)])", entries: Object.entries(adj).map(([u, l]) => [u, l.map(([v, w]) => `${v}@${w}`).join(" ")]) });
+    const H = hl => ({ t: "set", label: "min-heap (time, node)", v: heap.map(([t, u]) => `t=${t}→n${u}`), hl });
+    const D = hl => ({ t: "kv", label: "finalized shortest times", entries: kvEntries(dist), hl });
+    f.add(`Dijkstra from node ${k}: the heap always pops the node reachable in the LEAST time — that time is then its final shortest distance.`, 6, [A(), H({ "t=0→n1": "p" }), D()]);
+    let guard = 0;
+    while (heap.length && guard++ < 20) {
+      heap.sort((a, b) => a[0] - b[0]);
+      const [t, u] = heap.shift();
+      if (u in dist) {
+        f.add(`Pop (t=${t}, node ${u}) — but node ${u} is already finalized at t=${dist[u]}. Skip this stale entry.`, 9, [A(), H(), D({ [u]: "d" })]);
+        continue;
+      }
+      dist[u] = t;
+      f.add(`Pop (t=${t}, node ${u}) — first time seen, so ${t} IS its shortest arrival. Finalize it and relax its edges.`, 11, [A(), H(), D({ [u]: "g" })]);
+      const added = [];
+      for (const [v, w] of adj[u] || []) if (!(v in dist)) { heap.push([t + w, v]); added.push(`t=${t + w}→n${v}`); }
+      if (added.length) f.add(`Push neighbors of ${u}: ${added.join(", ")}.`, 14, [A(), H(Object.fromEntries(added.map(x => [x, "y"]))), D()]);
+    }
+    const ans = Object.keys(dist).length === n ? Math.max(...Object.values(dist)) : -1;
+    f.add(ans === -1 ? `Some node was never reached — return -1.` : `All ${n} nodes reached; the signal arrives everywhere by t=${ans} (the max shortest time). O(E log V).`, 15, [A(), H(), D()], true);
+    return f;
+  },
+};
+
+// ---------------------------------------------------------- Reconstruct Itinerary
+VIS["reconstruct-itinerary"] = {
+  inputs: [],
+  code: `def findItinerary(tickets):
+    adj = defaultdict(list)
+    for src, dst in sorted(tickets, reverse=True):
+        adj[src].append(dst)   # smallest dst on top
+    route = []
+    stack = ["JFK"]
+    while stack:
+        while adj[stack[-1]]:
+            stack.append(adj[stack[-1]].pop())
+        route.append(stack.pop())
+    return route[::-1]`,
+  gen() {
+    const f = mkFrames();
+    const tickets = [["JFK", "SFO"], ["JFK", "ATL"], ["SFO", "ATL"], ["ATL", "JFK"], ["ATL", "SFO"]];
+    const adj = {};
+    for (const [s, d] of [...tickets].sort((a, b) => (a[1] < b[1] ? 1 : -1))) (adj[s] = adj[s] || []).push(d);
+    const A = hl => ({ t: "kv", label: "adj (next stops, alphabetical)", entries: Object.entries(adj).map(([s, l]) => [s, `[${l.slice().reverse().join(", ")}]`]), hl });
+    const stack = ["JFK"];
+    const route = [];
+    const S = hl => ({ t: "stack", label: "stack", v: [...stack], hl });
+    const R = () => ({ t: "arr", label: "route (built in reverse)", v: route.length ? route.slice().reverse() : ["·"], hl: {} });
+    f.add(`Hierholzer's algorithm for an Eulerian path: always fly the alphabetically-smallest unused ticket; a dead end is prepended to the route.`, 6, [A(), S({ 0: "p" }), R()]);
+    let guard = 0;
+    while (stack.length && guard++ < 30) {
+      const top = stack[stack.length - 1];
+      if (adj[top] && adj[top].length) {
+        const nxt = adj[top].pop();
+        stack.push(nxt);
+        f.add(`At ${top}: take the smallest unused ticket → ${nxt}. Push it and keep flying.`, 9, [A({ [top]: "y" }), S({ [stack.length - 1]: "p" }), R()]);
+      } else {
+        route.push(stack.pop());
+        f.add(`${top} is a dead end (no tickets left) — pop it onto the front of the route.`, 10, [A(), S(), R()]);
+      }
+    }
+    f.add(`Reverse the popped order for the final itinerary: ${route.slice().reverse().join(" → ")}. O(E log E).`, 11, [A(), S(), R()], true);
+    return f;
+  },
+};
+
+// -------------------------------------------------- Cheapest Flights Within K Stops
+VIS["cheapest-flights-within-k-stops"] = {
+  inputs: [],
+  code: `def findCheapestPrice(n, flights, src, dst, k):
+    prices = [float("inf")] * n
+    prices[src] = 0
+    for _ in range(k + 1):          # at most k+1 hops
+        tmp = prices[:]             # snapshot!
+        for u, v, w in flights:
+            if prices[u] + w < tmp[v]:
+                tmp[v] = prices[u] + w
+        prices = tmp
+    return prices[dst] if prices[dst] != inf else -1`,
+  gen() {
+    const f = mkFrames();
+    const n = 4;
+    const flights = [[0, 1, 100], [1, 2, 100], [2, 0, 100], [1, 3, 600], [2, 3, 200]];
+    const src = 0, dst = 3, k = 1;
+    let prices = new Array(n).fill(Infinity);
+    prices[src] = 0;
+    const F = hl => ({ t: "set", label: "flights (u→v : cost)", v: flights.map(([u, v, w]) => `${u}→${v}:${w}`), hl });
+    const P = hl => ({ t: "arr", label: "cheapest price to each city", v: prices.map(p => (p === Infinity ? "∞" : p)), hl });
+    f.add(`Bellman-Ford capped at k+1 = ${k + 1} rounds. The snapshot is the trick: relaxing from LAST round's prices bounds paths to exactly one more hop per round.`, 4, [F(), P({ [src]: "g" })]);
+    for (let round = 0; round < k + 1; round++) {
+      const tmp = [...prices];
+      const relaxed = [];
+      for (const [u, v, w] of flights) {
+        if (prices[u] + w < tmp[v]) { tmp[v] = prices[u] + w; relaxed.push(v); }
+      }
+      prices = tmp;
+      f.add(`Round ${round + 1} (paths of ≤ ${round + 1} hop${round ? "s" : ""}): relax every flight from the snapshot → city ${relaxed.join(", ") || "none"} got cheaper.`, 9, [F(), P(Object.fromEntries(relaxed.map(v => [v, "y"])))]);
+    }
+    const ans = prices[dst] === Infinity ? -1 : prices[dst];
+    f.add(ans === -1 ? `No route within ${k} stops — return -1.` : `Cheapest ${src}→${dst} within ${k} stop(s): ${ans} (0→1→3 costs 700, but 0→1→2→3 needs 2 stops). O(k·E).`, 10, [F(), P({ [dst]: ans === -1 ? "r" : "g" })], true);
+    return f;
+  },
+};
+
+// ------------------------------------------------------------ Swim in Rising Water
+VIS["swim-in-rising-water"] = {
+  inputs: [],
+  code: `def swimInWater(grid):
+    n = len(grid)
+    heap = [(grid[0][0], 0, 0)]    # (max elevation, r, c)
+    seen = {(0, 0)}
+    while heap:
+        t, r, c = heappop(heap)
+        if r == n - 1 and c == n - 1:
+            return t
+        for dr, dc in [(1,0),(-1,0),(0,1),(0,-1)]:
+            nr, nc = r + dr, c + dc
+            if (0 <= nr < n and 0 <= nc < n
+                    and (nr, nc) not in seen):
+                seen.add((nr, nc))
+                heappush(heap,
+                    (max(t, grid[nr][nc]), nr, nc))`,
+  gen() {
+    const f = mkFrames();
+    const grid = [[0, 2, 1, 3], [4, 8, 6, 5], [12, 9, 10, 7], [11, 14, 13, 15]];
+    const n = grid.length;
+    let heap = [[grid[0][0], 0, 0]];
+    const seen = new Set(["0,0"]);
+    const G = extra => {
+      const hl = {};
+      seen.forEach(k => (hl[k] = "w"));
+      Object.assign(hl, extra || {});
+      return { t: "grid", label: "elevations (outlined = visited)", v: grid, hl };
+    };
+    const V = t => ({ t: "vars", entries: [["water level t", t]] });
+    f.add(`A path's cost is the HIGHEST cell it crosses (you wait for water to rise). Dijkstra-style: always expand the frontier cell with the lowest max-so-far.`, 5, [G({ "0,0": "p" }), V(grid[0][0])]);
+    let guard = 0;
+    while (heap.length && guard++ < 30) {
+      heap.sort((a, b) => a[0] - b[0]);
+      const [t, r, c] = heap.shift();
+      if (r === n - 1 && c === n - 1) {
+        f.add(`Reached the bottom-right at water level ${t} — that's the earliest arrival. Return ${t}.`, 8, [G({ [r + "," + c]: "g" }), V(t)], true);
+        return f;
+      }
+      const added = [];
+      for (const [dr, dc] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nr = r + dr, nc = c + dc;
+        if (nr >= 0 && nr < n && nc >= 0 && nc < n && !seen.has(nr + "," + nc)) {
+          seen.add(nr + "," + nc);
+          heap.push([Math.max(t, grid[nr][nc]), nr, nc]);
+          added.push(nr + "," + nc);
+        }
+      }
+      f.add(`Expand (${r},${c}) at level ${t}: each neighbor's cost becomes max(${t}, its elevation). Push them onto the heap.`, 15, [G({ [r + "," + c]: "p", ...Object.fromEntries(added.map(k => [k, "y"])) }), V(t)]);
+    }
+    return f;
+  },
+};
+
+// ------------------------------------------------------------- Alien Dictionary
+VIS["alien-dictionary"] = {
+  inputs: [],
+  code: `def alienOrder(words):
+    adj = {c: set() for w in words for c in w}
+    indeg = {c: 0 for c in adj}
+    for a, b in zip(words, words[1:]):
+        for x, y in zip(a, b):
+            if x != y:
+                if y not in adj[x]:
+                    adj[x].add(y)
+                    indeg[y] += 1
+                break
+        else:
+            if len(a) > len(b):
+                return ""      # invalid: prefix after
+    queue = deque(c for c in indeg if indeg[c] == 0)
+    res = []
+    while queue:
+        c = queue.popleft()
+        res.append(c)
+        for nxt in adj[c]:
+            indeg[nxt] -= 1
+            if indeg[nxt] == 0:
+                queue.append(nxt)
+    return "".join(res) if len(res) == len(adj) else ""`,
+  gen() {
+    const f = mkFrames();
+    const words = ["wrt", "wrf", "er", "ett", "rftt"];
+    const chars = [...new Set(words.join(""))];
+    const adj = {}; chars.forEach(c => (adj[c] = new Set()));
+    const indeg = {}; chars.forEach(c => (indeg[c] = 0));
+    const W = () => ({ t: "arr", label: "words (sorted in alien order)", v: words, hl: {} });
+    const E = hl => ({ t: "set", label: "precedence edges (x before y)", v: Object.entries(adj).flatMap(([x, s]) => [...s].map(y => `${x}<${y}`)), hl });
+    f.add(`Adjacent words reveal ONE ordering rule each: their first differing letter. Collect those edges, then topologically sort the alphabet.`, 5, [W(), E()]);
+    for (let i = 0; i + 1 < words.length; i++) {
+      const a = words[i], b = words[i + 1];
+      let found = false;
+      for (let j = 0; j < Math.min(a.length, b.length); j++) {
+        if (a[j] !== b[j]) {
+          if (!adj[a[j]].has(b[j])) { adj[a[j]].add(b[j]); indeg[b[j]]++; }
+          f.add(`"${a}" before "${b}": first difference is '${a[j]}' vs '${b[j]}' → '${a[j]}' comes before '${b[j]}'.`, 9, [W(), E({ [`${a[j]}<${b[j]}`]: "y" })]);
+          found = true;
+          break;
+        }
+      }
+      if (!found) f.add(`"${a}" and "${b}" share a common prefix — no new rule from this pair.`, 8, [W(), E()]);
+    }
+    let queue = chars.filter(c => indeg[c] === 0);
+    const res = [];
+    const R = () => ({ t: "arr", label: "alien alphabet order", v: res.length ? res : ["·"], hl: {} });
+    f.add(`Now Kahn's topo-sort: letters with no "must come after" constraint go first.`, 15, [E(), R()]);
+    let guard = 0;
+    while (queue.length && guard++ < 30) {
+      queue.sort();
+      const c = queue.shift();
+      res.push(c);
+      const rel = [];
+      for (const nxt of adj[c]) { indeg[nxt]--; if (indeg[nxt] === 0) { queue.push(nxt); rel.push(nxt); } }
+      f.add(`Output '${c}' → order "${res.join("")}".${rel.length ? ` Now '${rel.join(", ")}' become unconstrained.` : ""}`, 20, [E({ ...Object.fromEntries([...adj[c]].map(y => [`${c}<${y}`, "g"])) }), R()]);
+    }
+    f.add(`Alien alphabet: "${res.join("")}". A valid topological order exists, so the input was consistent. O(total characters).`, 23, [E(), R()], true);
+    return f;
+  },
+};
