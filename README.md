@@ -11,7 +11,7 @@ starting with the [NeetCode 150](https://neetcode.io/practice/practice/neetcode1
   - the optimal approach explained in one sentence
   - time and space complexity
   - a link to the problem on LeetCode
-- **Interactive step-by-step visualizations** for a growing set of problems (24 so far).
+- **Interactive step-by-step visualizations** for a growing set of problems (75 so far, spanning every category).
   Each one animates the optimal algorithm running on real input:
   - play / pause / step / seek / speed controls
   - the Python solution shown alongside, with the **current line highlighted at every step**
@@ -42,39 +42,19 @@ The site will be published at `https://<user>.github.io/algo-viz/`.
 
 ## Currently visualized problems
 
-| Problem | Technique animated |
-|---|---|
-| Two Sum | one-pass hash map |
-| Contains Duplicate | hash set |
-| Valid Anagram | frequency counting |
-| Product of Array Except Self | prefix/suffix products |
-| Valid Palindrome | two pointers with skipping |
-| Two Sum II | converging two pointers |
-| Container With Most Water | two pointers on bars |
-| Best Time to Buy and Sell Stock | sliding window min-tracking |
-| Longest Substring Without Repeating Characters | sliding window + set |
-| Valid Parentheses | stack matching |
-| Daily Temperatures | monotonic stack |
-| Binary Search | halving with L/M/R pointers |
-| Reverse Linked List | in-place pointer flipping |
-| Maximum Subarray | Kadane's algorithm |
-| Climbing Stairs | bottom-up DP (Fibonacci) |
-| Invert Binary Tree | BFS child swapping |
-| 3Sum | anchor + two pointers with dedup |
-| Trapping Rain Water | two pointers with leftMax/rightMax |
-| Min Stack | (value, min-so-far) pairs |
-| Koko Eating Bananas | binary search on the answer |
-| House Robber | rolling two-variable DP |
-| Coin Change | bottom-up DP table fill |
-| Number of Islands | flood fill on a grid |
-| Rotting Oranges | multi-source BFS by minutes |
+75 of the 150 problems have interactive visualizations, covering every category:
+arrays & hashing, two pointers (complete), sliding window (complete), stack (complete),
+binary search, linked lists, trees, backtracking, graphs, 1-D and 2-D DP, greedy,
+intervals (complete), math & geometry, and bit manipulation.
+
+Use the **"Interactive only"** filter on the site's home page for the full list.
 
 ## Adding a new visualizer
 
 Everything lives in `js/`:
 
 - `data.js` — the 150-problem catalog (title, difficulty, approach, complexity).
-- `engine.js` — generic renderers (array, bars, map, set, stack, vars, linked list, tree) and the playback engine.
+- `engine.js` — generic renderers (array, bars, map, set, stack, vars, linked list, tree, grid, interval timeline) and the playback engine.
 - `visualizers.js` — one entry per visualized problem: `VIS["<slug>"] = { inputs, code, gen }`,
   where `gen(...)` returns a list of frames `{ d: description, l: code line, c: [components] }`.
 - `app.js` — hash router and pages.
