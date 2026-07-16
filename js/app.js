@@ -42,7 +42,7 @@ function renderLists() {
     const filtered = items.filter(([slug, title, , approach]) => {
       if (vizOnly && !VIS[slug]) return false;
       if (!q) return true;
-      return (title + " " + cat + " " + approach).toLowerCase().includes(q);
+      return (title + " " + cat + " " + approach + " " + (STATEMENTS[slug] || "")).toLowerCase().includes(q);
     });
     if (!filtered.length) return "";
     return `<section class="cat">
@@ -77,6 +77,10 @@ function problemPage(slug) {
       <span class="cat-badge">${esc(p.cat)}</span>
       <a class="lc-link" href="https://leetcode.com/problems/${p.slug}/" target="_blank" rel="noopener">View on LeetCode ↗</a>
     </div>
+    ${STATEMENTS[p.slug] ? `<div class="panel">
+      <h3>Problem</h3>
+      <p class="big">${esc(STATEMENTS[p.slug])}</p>
+    </div>` : ""}
     <div class="panel">
       <h3>Optimal approach</h3>
       <p class="big">${esc(p.approach)}</p>
