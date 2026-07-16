@@ -145,11 +145,25 @@ function renderGrid(c) {
   return block(c.label, `<div class="gridwrap">${rows}</div>`);
 }
 
+function renderIV(c) {
+  // c.v: [{s, e, cls, label}] — intervals drawn on a shared time axis
+  const lo = Math.min(...c.v.map(x => x.s));
+  const hi = Math.max(...c.v.map(x => x.e));
+  const span = hi - lo || 1;
+  const rows = c.v.map(x => {
+    const left = ((x.s - lo) / span) * 100;
+    const width = Math.max(3, ((x.e - x.s) / span) * 100);
+    const cls = x.cls ? " c-" + x.cls : "";
+    return `<div class="ivrow"><div class="ivbar${cls}" style="left:${left}%;width:${width}%">${esc(x.label ?? `[${x.s}, ${x.e}]`)}</div></div>`;
+  }).join("");
+  return block(c.label, `<div class="ivwrap">${rows}<div class="ivaxis"><span>${esc(lo)}</span><span>${esc(hi)}</span></div></div>`);
+}
+
 function block(label, inner) {
   return `<div class="viz-block">${label ? `<div class="viz-label">${esc(label)}</div>` : ""}${inner}</div>`;
 }
 
-const RENDERERS = { arr: renderArr, bars: renderBars, kv: renderKV, set: renderSet, stack: renderStack, vars: renderVars, ll: renderLL, tree: renderTree, grid: renderGrid };
+const RENDERERS = { arr: renderArr, bars: renderBars, kv: renderKV, set: renderSet, stack: renderStack, vars: renderVars, ll: renderLL, tree: renderTree, grid: renderGrid, iv: renderIV };
 
 function renderFrame(stage, frame) {
   stage.innerHTML = frame.c.map(c => RENDERERS[c.t](c)).join("");
@@ -279,6 +293,14 @@ function parseInput(raw, inp) {
     if (s.length === 0) throw new Error(`${inp.label}: cannot be empty`);
     if (s.length > (inp.max ?? 20)) throw new Error(`${inp.label}: max ${inp.max ?? 20} characters`);
     return s;
+  }
+  if (inp.type === "words") {
+    const cleaned = raw.replace(/^\[|\]$/g, "");
+    const words = cleaned.split(",").map(w => w.trim().replace(/^["']|["']$/g, "")).filter(w => w);
+    if (!words.length) throw new Error(`${inp.label}: cannot be empty`);
+    if (words.length > (inp.max ?? 8)) throw new Error(`${inp.label}: max ${inp.max ?? 8} words`);
+    if (words.some(w => w.length > 10)) throw new Error(`${inp.label}: each word max 10 characters`);
+    return words;
   }
   // int array: accepts "[1,2,3]" or "1, 2, 3"
   const cleaned = raw.replace(/^\[|\]$/g, "");
