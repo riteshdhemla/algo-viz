@@ -186,6 +186,10 @@ main { flex: 1; width: 100%; max-width: 1180px; margin: 0 auto; padding: 26px 28
 .llgap.dim { color: #3a4152; }
 .llnull { font-size: 10px; color: var(--muted); height: 13px; font-family: ui-monospace, monospace; }
 
+.gridwrap { display: flex; flex-direction: column; gap: 4px; }
+.grow { display: flex; gap: 4px; }
+.gcell { min-width: 38px; height: 38px; font-size: 14px; }
+
 .treesvg text { fill: var(--text); font-family: ui-monospace, monospace; font-size: 14px; font-weight: 600; }
 .treesvg .edge { stroke: var(--border); stroke-width: 1.5; }
 .treesvg circle { fill: var(--panel); stroke: var(--border); stroke-width: 1.5; transition: all .2s; }

@@ -11,11 +11,11 @@ starting with the [NeetCode 150](https://neetcode.io/practice/practice/neetcode1
   - the optimal approach explained in one sentence
   - time and space complexity
   - a link to the problem on LeetCode
-- **Interactive step-by-step visualizations** for a growing set of problems (16 so far).
+- **Interactive step-by-step visualizations** for a growing set of problems (24 so far).
   Each one animates the optimal algorithm running on real input:
   - play / pause / step / seek / speed controls
   - the Python solution shown alongside, with the **current line highlighted at every step**
-  - animated arrays, bars, hash maps, sets, stacks, linked lists, and binary trees
+  - animated arrays, bars, hash maps, sets, stacks, linked lists, binary trees, and grids
   - editable inputs — run the algorithm on your own data
 - Search and "interactive only" filtering on the home page.
 
@@ -31,7 +31,14 @@ python3 -m http.server 8000
 
 Or just open `index.html` directly in a browser.
 
-It can be hosted as-is on GitHub Pages (Settings → Pages → deploy from branch).
+## Deploying to GitHub Pages
+
+A deploy workflow is included at `.github/workflows/pages.yml`. To get a live URL:
+
+1. In the repo, go to **Settings → Pages** and set **Source** to **GitHub Actions** (one-time).
+2. Merge this branch to `main` (or run the workflow manually via **Actions → Deploy to GitHub Pages → Run workflow**).
+
+The site will be published at `https://<user>.github.io/algo-viz/`.
 
 ## Currently visualized problems
 
@@ -53,6 +60,14 @@ It can be hosted as-is on GitHub Pages (Settings → Pages → deploy from branc
 | Maximum Subarray | Kadane's algorithm |
 | Climbing Stairs | bottom-up DP (Fibonacci) |
 | Invert Binary Tree | BFS child swapping |
+| 3Sum | anchor + two pointers with dedup |
+| Trapping Rain Water | two pointers with leftMax/rightMax |
+| Min Stack | (value, min-so-far) pairs |
+| Koko Eating Bananas | binary search on the answer |
+| House Robber | rolling two-variable DP |
+| Coin Change | bottom-up DP table fill |
+| Number of Islands | flood fill on a grid |
+| Rotting Oranges | multi-source BFS by minutes |
 
 ## Adding a new visualizer
 

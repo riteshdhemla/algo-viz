@@ -136,11 +136,20 @@ function renderTree(c) {
   return block(c.label, `<svg class="treesvg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="max-width:100%">${edges}${nodes}</svg>`);
 }
 
+function renderGrid(c) {
+  const rows = c.v.map((row, r) => `<div class="grow">${row.map((val, cc) => {
+    const key = r + "," + cc;
+    const cls = (c.hl && c.hl[key]) ? " c-" + c.hl[key] : "";
+    return `<div class="cell gcell${cls}">${esc(val)}</div>`;
+  }).join("")}</div>`).join("");
+  return block(c.label, `<div class="gridwrap">${rows}</div>`);
+}
+
 function block(label, inner) {
   return `<div class="viz-block">${label ? `<div class="viz-label">${esc(label)}</div>` : ""}${inner}</div>`;
 }
 
-const RENDERERS = { arr: renderArr, bars: renderBars, kv: renderKV, set: renderSet, stack: renderStack, vars: renderVars, ll: renderLL, tree: renderTree };
+const RENDERERS = { arr: renderArr, bars: renderBars, kv: renderKV, set: renderSet, stack: renderStack, vars: renderVars, ll: renderLL, tree: renderTree, grid: renderGrid };
 
 function renderFrame(stage, frame) {
   stage.innerHTML = frame.c.map(c => RENDERERS[c.t](c)).join("");

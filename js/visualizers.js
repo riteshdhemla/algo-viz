@@ -697,3 +697,446 @@ VIS["invert-binary-tree"] = {
     return f;
   },
 };
+
+// ============================ batch 2 ============================
+
+// ------------------------------------------------------------------- 3Sum
+VIS["3sum"] = {
+  inputs: [{ name: "nums", label: "nums", type: "arr", def: "[-1, 0, 1, 2, -1, -4]", max: 7, min: 3 }],
+  code: `def threeSum(nums):
+    nums.sort()
+    res = []
+    for i in range(len(nums)):
+        if i > 0 and nums[i] == nums[i - 1]:
+            continue
+        l, r = i + 1, len(nums) - 1
+        while l < r:
+            s = nums[i] + nums[l] + nums[r]
+            if s < 0:
+                l += 1
+            elif s > 0:
+                r -= 1
+            else:
+                res.append([nums[i], nums[l], nums[r]])
+                l += 1
+                while l < r and nums[l] == nums[l - 1]:
+                    l += 1
+    return res`,
+  gen(nums) {
+    const f = mkFrames();
+    nums = [...nums].sort((a, b) => a - b);
+    const res = [];
+    const A = (hl, ptrs) => ({ t: "arr", label: "nums (sorted)", v: nums, hl, ptrs });
+    const R = hl => ({ t: "set", label: "res (triplets)", v: res.map(t => `[${t.join(", ")}]`), hl });
+    f.add(`Sort first. Then anchor each element i and run the two-pointer Two Sum II on the rest, looking for −nums[i].`, 2, [A({}, {}), R()]);
+    for (let i = 0; i < nums.length; i++) {
+      if (i > 0 && nums[i] === nums[i - 1]) {
+        f.add(`nums[${i}] = ${nums[i]} equals the previous anchor — skip it to avoid duplicate triplets.`, 6,
+          [A({ [i]: "d" }, { [i]: "i" }), R()]);
+        continue;
+      }
+      let l = i + 1, r = nums.length - 1;
+      if (l >= r) break;
+      f.add(`Anchor i = ${i} (${nums[i]}). Two pointers now search the right side for a pair summing to ${-nums[i]}.`, 7,
+        [A({ [i]: "p" }, { [i]: "i", [l]: "L", [r]: "R" }), R()]);
+      while (l < r) {
+        const s = nums[i] + nums[l] + nums[r];
+        if (s < 0) {
+          f.add(`${nums[i]} + ${nums[l]} + ${nums[r]} = ${s} < 0 — too small, move L right.`, 11,
+            [A({ [i]: "p", [l]: "y" }, { [i]: "i", [l]: "L", [r]: "R" }), R()]);
+          l++;
+        } else if (s > 0) {
+          f.add(`${nums[i]} + ${nums[l]} + ${nums[r]} = ${s} > 0 — too big, move R left.`, 13,
+            [A({ [i]: "p", [r]: "y" }, { [i]: "i", [l]: "L", [r]: "R" }), R()]);
+          r--;
+        } else {
+          res.push([nums[i], nums[l], nums[r]]);
+          f.add(`${nums[i]} + ${nums[l]} + ${nums[r]} = 0 — triplet found!`, 15,
+            [A({ [i]: "g", [l]: "g", [r]: "g" }, { [i]: "i", [l]: "L", [r]: "R" }), R({ [`[${res[res.length - 1].join(", ")}]`]: "g" })]);
+          l++;
+          while (l < r && nums[l] === nums[l - 1]) {
+            f.add(`nums[${l}] repeats the previous L value — skip to avoid a duplicate triplet.`, 18,
+              [A({ [i]: "p", [l]: "d" }, { [i]: "i", [l]: "L", [r]: "R" }), R()]);
+            l++;
+          }
+        }
+      }
+    }
+    f.add(`All anchors processed — ${res.length} unique triplet(s) sum to zero. O(n²) total.`, 19, [A({}, {}), R()], true);
+    return f;
+  },
+};
+
+// ------------------------------------------------------ Trapping Rain Water
+VIS["trapping-rain-water"] = {
+  inputs: [{ name: "height", label: "height", type: "arr", def: "[0, 1, 0, 2, 1, 0, 1, 3, 2, 1, 2, 1]", max: 12 }],
+  code: `def trap(height):
+    l, r = 0, len(height) - 1
+    leftMax, rightMax = height[l], height[r]
+    water = 0
+    while l < r:
+        if leftMax < rightMax:
+            l += 1
+            leftMax = max(leftMax, height[l])
+            water += leftMax - height[l]
+        else:
+            r -= 1
+            rightMax = max(rightMax, height[r])
+            water += rightMax - height[r]
+    return water`,
+  gen(height) {
+    const f = mkFrames();
+    height = height.map(h => Math.max(0, h));
+    let l = 0, r = height.length - 1;
+    let leftMax = height[l], rightMax = height[r], water = 0;
+    const B = (hl, ptrs) => ({ t: "bars", label: "elevation map", v: height, hl, ptrs });
+    const V = () => ({ t: "vars", entries: [["leftMax", leftMax], ["rightMax", rightMax], ["water", water]] });
+    f.add(`Water above a bar is bounded by min(leftMax, rightMax). Advance the side with the smaller max — its bound is certain.`, 3,
+      [B({}, { [l]: "L", [r]: "R" }), V()]);
+    while (l < r) {
+      if (leftMax < rightMax) {
+        l++;
+        leftMax = Math.max(leftMax, height[l]);
+        const add = leftMax - height[l];
+        water += add;
+        f.add(add > 0
+          ? `leftMax (${leftMax}) < rightMax — move L to ${l}. Bar is ${height[l]}, so ${add} unit(s) of water sit on it.`
+          : `leftMax < rightMax — move L to ${l}. Bar ${height[l]} reaches leftMax, no water here.`, 9,
+          [B({ [l]: add > 0 ? "g" : "y" }, { [l]: "L", [r]: "R" }), V()]);
+      } else {
+        r--;
+        rightMax = Math.max(rightMax, height[r]);
+        const add = rightMax - height[r];
+        water += add;
+        f.add(add > 0
+          ? `rightMax (${rightMax}) ≤ leftMax side — move R to ${r}. Bar is ${height[r]}, so ${add} unit(s) of water sit on it.`
+          : `rightMax side is the smaller bound — move R to ${r}. Bar ${height[r]} reaches rightMax, no water here.`, 13,
+          [B({ [r]: add > 0 ? "g" : "y" }, { [l]: "L", [r]: "R" }), V()]);
+      }
+    }
+    f.add(`Pointers met — total trapped water: ${water} units. One pass, O(1) extra space.`, 14, [B({}, {}), V()], true);
+    return f;
+  },
+};
+
+// ---------------------------------------------------------------- Min Stack
+VIS["min-stack"] = {
+  inputs: [],
+  code: `class MinStack:
+    def __init__(self):
+        self.stack = []  # (value, min so far)
+
+    def push(self, val):
+        m = min(val, self.stack[-1][1]) if self.stack else val
+        self.stack.append((val, m))
+
+    def pop(self):
+        self.stack.pop()
+
+    def top(self):
+        return self.stack[-1][0]
+
+    def getMin(self):
+        return self.stack[-1][1]`,
+  gen() {
+    const f = mkFrames();
+    const stack = []; // [val, min]
+    const St = hl => ({ t: "stack", label: "stack (value · min so far)", v: stack.map(([v, m]) => `${v} · min ${m}`), hl });
+    const ops = [
+      ["push", 5], ["push", 2], ["push", 7], ["getMin"], ["pop"],
+      ["push", 1], ["getMin"], ["pop"], ["top"], ["getMin"],
+    ];
+    f.add(`Trick: store the minimum-so-far NEXT TO each value. Then getMin never has to search — it just peeks the top.`, 3, [St()]);
+    for (const [op, val] of ops) {
+      if (op === "push") {
+        const m = stack.length ? Math.min(val, stack[stack.length - 1][1]) : val;
+        stack.push([val, m]);
+        f.add(`push(${val}): min so far = min(${val}${stack.length > 1 ? `, ${stack[stack.length - 2][1]}` : ""}) = ${m}. Store the pair (${val}, ${m}).`, 7,
+          [St({ [stack.length - 1]: "p" })]);
+      } else if (op === "pop") {
+        const [v] = stack[stack.length - 1];
+        f.add(`pop(): remove ${v}. The pair below already remembers ITS own min — nothing to recompute.`, 10,
+          [St({ [stack.length - 1]: "r" })]);
+        stack.pop();
+      } else if (op === "top") {
+        f.add(`top() → ${stack[stack.length - 1][0]} — first element of the top pair. O(1).`, 13,
+          [St({ [stack.length - 1]: "p" })]);
+      } else {
+        f.add(`getMin() → ${stack[stack.length - 1][1]} — second element of the top pair. O(1), no scanning.`, 16,
+          [St({ [stack.length - 1]: "g" })]);
+      }
+    }
+    f.add(`Every operation — push, pop, top, getMin — ran in O(1) by pairing each value with the min beneath it.`, 16, [St()], true);
+    return f;
+  },
+};
+
+// ----------------------------------------------------- Koko Eating Bananas
+VIS["koko-eating-bananas"] = {
+  inputs: [
+    { name: "piles", label: "piles", type: "arr", def: "[3, 6, 7, 11]", max: 8, min: 1 },
+    { name: "h", label: "h (hours)", type: "int", def: "8", min: 1, max: 40 },
+  ],
+  code: `def minEatingSpeed(piles, h):
+    l, r = 1, max(piles)
+    res = r
+    while l <= r:
+        k = (l + r) // 2
+        hours = sum(ceil(p / k) for p in piles)
+        if hours <= h:
+            res = k
+            r = k - 1
+        else:
+            l = k + 1
+    return res`,
+  gen(piles, h) {
+    const f = mkFrames();
+    piles = piles.map(p => Math.max(1, p));
+    if (h < piles.length) h = piles.length; // one hour per pile is the physical minimum
+    let l = 1, r = Math.max(...piles), res = r;
+    const P = hl => ({ t: "arr", label: "piles", v: piles, hl });
+    const Hrs = (k, hl) => ({ t: "arr", label: `hours per pile at speed k = ${k}`, v: piles.map(p => Math.ceil(p / k)), hl });
+    const V = (k, hours) => ({ t: "vars", entries: [["l", l], ["r", r], ["k", k ?? "—"], ["hours", hours ?? "—"], ["h", h], ["res", res]] });
+    f.add(`Binary search the ANSWER: eating speed k lives in [1, max pile]. Checking a k is just a sum of ceilings.`, 2, [P({}), V()]);
+    while (l <= r) {
+      const k = (l + r) >> 1;
+      const hours = piles.reduce((s, p) => s + Math.ceil(p / k), 0);
+      f.add(`Try k = (${l} + ${r}) // 2 = ${k}: total hours = ${piles.map(p => Math.ceil(p / k)).join(" + ")} = ${hours}.`, 6,
+        [P({}), Hrs(k, Object.fromEntries(piles.map((_, i) => [i, "p"]))), V(k, hours)]);
+      if (hours <= h) {
+        res = k;
+        f.add(`${hours} ≤ ${h} — speed ${k} works! Remember it and try slower: r = ${k - 1}.`, 9,
+          [P({}), Hrs(k, Object.fromEntries(piles.map((_, i) => [i, "g"]))), V(k, hours)]);
+        r = k - 1;
+      } else {
+        f.add(`${hours} > ${h} — too slow. Koko must eat faster: l = ${k + 1}.`, 11,
+          [P({}), Hrs(k, Object.fromEntries(piles.map((_, i) => [i, "r"]))), V(k, hours)]);
+        l = k + 1;
+      }
+    }
+    f.add(`Search space empty — the minimum workable speed is ${res} bananas/hour. O(n log max).`, 12, [P({}), V()], true);
+    return f;
+  },
+};
+
+// -------------------------------------------------------------- House Robber
+VIS["house-robber"] = {
+  inputs: [{ name: "nums", label: "house values", type: "arr", def: "[2, 7, 9, 3, 1]", max: 10, min: 1 }],
+  code: `def rob(nums):
+    rob1, rob2 = 0, 0
+    # rob1 = best up to i-2, rob2 = best up to i-1
+    for n in nums:
+        rob1, rob2 = rob2, max(rob1 + n, rob2)
+    return rob2`,
+  gen(nums) {
+    const f = mkFrames();
+    let rob1 = 0, rob2 = 0;
+    const A = hl => ({ t: "arr", label: "houses", v: nums, hl });
+    const V = () => ({ t: "vars", entries: [["rob1 (i−2)", rob1], ["rob2 (i−1)", rob2]] });
+    f.add(`At each house: either rob it (adding to the best two houses back) or skip it (keeping the best so far).`, 2, [A({}), V()]);
+    for (let i = 0; i < nums.length; i++) {
+      const take = rob1 + nums[i], skip = rob2;
+      const taken = take > skip;
+      [rob1, rob2] = [rob2, Math.max(take, skip)];
+      f.add(`House ${i} (${nums[i]}): rob it → ${take - nums[i]} + ${nums[i]} = ${take}, or skip → ${skip}. ` +
+        (taken ? `Robbing wins: best = ${rob2}.` : `Skipping wins: best stays ${rob2}.`), 5,
+        [A({ [i]: taken ? "g" : "y" }), V()]);
+    }
+    f.add(`Maximum loot without robbing two adjacent houses: ${rob2}. O(n) time, two variables of space.`, 6, [A({}), V()], true);
+    return f;
+  },
+};
+
+// --------------------------------------------------------------- Coin Change
+VIS["coin-change"] = {
+  inputs: [
+    { name: "coins", label: "coins", type: "arr", def: "[1, 3, 4]", max: 4, min: 1 },
+    { name: "amount", label: "amount", type: "int", def: "6", min: 1, max: 9 },
+  ],
+  code: `def coinChange(coins, amount):
+    dp = [float("inf")] * (amount + 1)
+    dp[0] = 0
+    for a in range(1, amount + 1):
+        for c in coins:
+            if a - c >= 0:
+                dp[a] = min(dp[a], 1 + dp[a - c])
+    return dp[amount] if dp[amount] != float("inf") else -1`,
+  gen(coins, amount) {
+    const f = mkFrames();
+    coins = [...new Set(coins.map(c => Math.max(1, c)))].sort((a, b) => a - b);
+    const INF = Infinity;
+    const dp = new Array(amount + 1).fill(INF);
+    dp[0] = 0;
+    const D = hl => ({ t: "arr", label: "dp[a] = fewest coins to make amount a", v: dp.map(x => (x === INF ? "∞" : x)), hl });
+    const C = hl => ({ t: "arr", label: "coins", v: coins, hl });
+    f.add(`Build up from amount 0 (needs 0 coins). Every amount a asks each coin: "1 + dp[a − coin]" — take the minimum.`, 3,
+      [C({}), D({ 0: "g" })]);
+    for (let a = 1; a <= amount; a++) {
+      for (let ci = 0; ci < coins.length; ci++) {
+        const c = coins[ci];
+        if (a - c < 0) continue;
+        const cand = 1 + dp[a - c];
+        if (cand < dp[a]) {
+          dp[a] = cand;
+          f.add(`a = ${a}, coin ${c}: 1 + dp[${a - c}] = ${cand === INF ? "∞" : cand} — new best for dp[${a}].`, 7,
+            [C({ [ci]: "p" }), D({ [a]: "g", [a - c]: "p" })]);
+        } else {
+          f.add(`a = ${a}, coin ${c}: 1 + dp[${a - c}] = ${cand === INF ? "∞" : cand} — not better than dp[${a}] = ${dp[a] === INF ? "∞" : dp[a]}.`, 7,
+            [C({ [ci]: "y" }), D({ [a]: "y", [a - c]: "p" })]);
+        }
+      }
+    }
+    f.add(dp[amount] === INF
+      ? `dp[${amount}] stayed ∞ — the amount cannot be made from these coins. Return -1.`
+      : `dp[${amount}] = ${dp[amount]} — the fewest coins for amount ${amount}. O(amount × coins).`, 8,
+      [C({}), D({ [amount]: dp[amount] === INF ? "r" : "g" })], true);
+    return f;
+  },
+};
+
+// -------------------------------------------------------- Number of Islands
+VIS["number-of-islands"] = {
+  inputs: [],
+  code: `def numIslands(grid):
+    rows, cols = len(grid), len(grid[0])
+    count = 0
+    for r in range(rows):
+        for c in range(cols):
+            if grid[r][c] == "1":
+                count += 1
+                grid[r][c] = "#"
+                stack = [(r, c)]
+                while stack:
+                    i, j = stack.pop()
+                    for di, dj in [(1,0),(-1,0),(0,1),(0,-1)]:
+                        ni, nj = i + di, j + dj
+                        if 0 <= ni < rows and 0 <= nj < cols \\
+                                and grid[ni][nj] == "1":
+                            grid[ni][nj] = "#"
+                            stack.append((ni, nj))
+    return count`,
+  gen() {
+    const f = mkFrames();
+    const grid = [
+      [1, 1, 0, 0, 0],
+      [1, 1, 0, 0, 0],
+      [0, 0, 1, 0, 0],
+      [0, 0, 0, 1, 1],
+    ];
+    const rows = grid.length, cols = grid[0].length;
+    const visited = new Set();
+    let count = 0;
+    const G = extra => {
+      const hl = {};
+      for (let r = 0; r < rows; r++)
+        for (let c = 0; c < cols; c++)
+          hl[r + "," + c] = grid[r][c] === 0 ? "d" : (visited.has(r + "," + c) ? "g" : "w");
+      Object.assign(hl, extra);
+      return { t: "grid", label: "grid (dim = water, green = counted land)", v: grid, hl };
+    };
+    const V = () => ({ t: "vars", entries: [["count", count]] });
+    f.add(`Scan every cell. Each time we step on land not yet claimed, that's ONE new island — flood-fill claims all of it.`, 3, [G(), V()]);
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        if (grid[r][c] === 1 && !visited.has(r + "," + c)) {
+          count++;
+          visited.add(r + "," + c);
+          f.add(`Unclaimed land at (${r}, ${c}) — island #${count} found! Flood-fill everything connected to it.`, 7,
+            [G({ [r + "," + c]: "p" }), V()]);
+          const stack = [[r, c]];
+          while (stack.length) {
+            const [i, j] = stack.pop();
+            for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+              const ni = i + di, nj = j + dj;
+              if (ni >= 0 && ni < rows && nj >= 0 && nj < cols && grid[ni][nj] === 1 && !visited.has(ni + "," + nj)) {
+                visited.add(ni + "," + nj);
+                stack.push([ni, nj]);
+                f.add(`(${ni}, ${nj}) is connected land — claim it for island #${count} so it's never counted again.`, 17,
+                  [G({ [ni + "," + nj]: "p" }), V()]);
+              }
+            }
+          }
+        }
+      }
+    }
+    f.add(`Scan complete: ${count} islands. Every cell was visited a constant number of times → O(m·n).`, 18, [G(), V()], true);
+    return f;
+  },
+};
+
+// ---------------------------------------------------------- Rotting Oranges
+VIS["rotting-oranges"] = {
+  inputs: [],
+  code: `def orangesRotting(grid):
+    rows, cols = len(grid), len(grid[0])
+    queue = deque()
+    fresh = 0
+    for r in range(rows):
+        for c in range(cols):
+            if grid[r][c] == 1: fresh += 1
+            elif grid[r][c] == 2: queue.append((r, c))
+    minutes = 0
+    while queue and fresh:
+        for _ in range(len(queue)):
+            r, c = queue.popleft()
+            for dr, dc in [(1,0),(-1,0),(0,1),(0,-1)]:
+                nr, nc = r + dr, c + dc
+                if 0 <= nr < rows and 0 <= nc < cols \\
+                        and grid[nr][nc] == 1:
+                    grid[nr][nc] = 2
+                    fresh -= 1
+                    queue.append((nr, nc))
+        minutes += 1
+    return minutes if fresh == 0 else -1`,
+  gen() {
+    const f = mkFrames();
+    const grid = [
+      [2, 1, 1],
+      [1, 1, 0],
+      [0, 1, 1],
+    ];
+    const rows = grid.length, cols = grid[0].length;
+    let queue = [], fresh = 0, minutes = 0;
+    for (let r = 0; r < rows; r++)
+      for (let c = 0; c < cols; c++) {
+        if (grid[r][c] === 1) fresh++;
+        else if (grid[r][c] === 2) queue.push([r, c]);
+      }
+    const SYM = ["·", "🍊", "🤢"];
+    const G = extra => {
+      const hl = {};
+      for (let r = 0; r < rows; r++)
+        for (let c = 0; c < cols; c++)
+          hl[r + "," + c] = grid[r][c] === 0 ? "d" : (grid[r][c] === 2 ? "r" : "y");
+      Object.assign(hl, extra);
+      return { t: "grid", label: "oranges (yellow = fresh, red = rotten)", v: grid.map(row => row.map(x => SYM[x])), hl };
+    };
+    const V = () => ({ t: "vars", entries: [["minutes", minutes], ["fresh", fresh]] });
+    f.add(`Multi-source BFS: ALL rotten oranges spread at once. Each BFS layer = one minute of rot.`, 8, [G(), V()]);
+    while (queue.length && fresh) {
+      const next = [];
+      const infected = [];
+      for (const [r, c] of queue) {
+        for (const [dr, dc] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const nr = r + dr, nc = c + dc;
+          if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && grid[nr][nc] === 1) {
+            grid[nr][nc] = 2;
+            fresh--;
+            next.push([nr, nc]);
+            infected.push(nr + "," + nc);
+          }
+        }
+      }
+      minutes++;
+      f.add(`Minute ${minutes}: every rotten orange infects its fresh 4-neighbors — ${infected.length} orange(s) turn. ${fresh} still fresh.`, 20,
+        [G(Object.fromEntries(infected.map(k => [k, "p"]))), V()]);
+      queue = next;
+    }
+    if (fresh === 0) {
+      f.add(`No fresh oranges left after ${minutes} minute(s) — that's the answer. BFS layers = elapsed time.`, 21, [G(), V()], true);
+    } else {
+      f.add(`The rot can't spread further but ${fresh} orange(s) stay fresh — unreachable. Return -1.`, 21, [G(), V()], true);
+    }
+    return f;
+  },
+};
