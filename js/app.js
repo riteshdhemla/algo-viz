@@ -48,14 +48,14 @@ function renderLists() {
     return `<section class="cat">
       <h2>${esc(cat)} <em>${filtered.length}</em></h2>
       <div class="grid">
-        ${filtered.map(([slug, title, diff, approach]) => `
+        ${filtered.map(([slug, title, diff]) => `
           <a class="card" href="#/p/${slug}">
             <div class="row1">
               <div class="title">${esc(title)}</div>
               ${VIS[slug] ? `<span class="badge viz">▶ interactive</span>` : ""}
               <span class="badge ${diff}">${DIFF_NAME[diff]}</span>
             </div>
-            <div class="approach">${esc(approach)}</div>
+            <div class="approach">${esc(STATEMENTS[slug] || "")}</div>
           </a>`).join("")}
       </div>
     </section>`;
