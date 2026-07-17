@@ -3364,3 +3364,3584 @@ VIS["course-schedule"] = {
     return f;
   },
 };
+
+// ============================ batch 7: trees ============================
+
+// helper: postorder DFS over heap-array trees
+const heapKids = (tree, i) => [2 * i + 1, 2 * i + 2].map(k => (k < tree.length && tree[k] !== null ? k : -1));
+
+// ---------------------------------------------------- Diameter of Binary Tree
+VIS["diameter-of-binary-tree"] = {
+  inputs: [],
+  code: `def diameterOfBinaryTree(root):
+    best = 0
+    def height(node):
+        nonlocal best
+        if not node:
+            return 0
+        lh = height(node.left)
+        rh = height(node.right)
+        best = max(best, lh + rh)
+        return 1 + max(lh, rh)
+    height(root)
+    return best`,
+  gen() {
+    const f = mkFrames();
+    const tree = [1, 2, 3, 4, 5, null, null, null, null, null, null, null, null, null, null];
+    let best = 0;
+    const T = hl => ({ t: "tree", label: "tree", v: tree, hl });
+    const V = () => ({ t: "vars", entries: [["best (diameter)", best]] });
+    f.add(`The longest path through a node = left height + right height. Compute heights bottom-up and track the best sum along the way.`, 2, [T({}), V()]);
+    const height = i => {
+      if (i === -1) return 0;
+      const [l, r] = heapKids(tree, i);
+      const lh = height(l), rh = height(r);
+      const improved = lh + rh > best;
+      best = Math.max(best, lh + rh);
+      f.add(`Node ${tree[i]}: left height ${lh}, right height ${rh} → path through it spans ${lh + rh} edge(s).${improved ? " New best!" : ""} Return height ${1 + Math.max(lh, rh)}.`, 9,
+        [T({ [i]: improved ? "g" : "p" }), V()]);
+      return 1 + Math.max(lh, rh);
+    };
+    height(0);
+    f.add(`Diameter: ${best} edges. One postorder pass — O(n).`, 12, [T({}), V()], true);
+    return f;
+  },
+};
+
+// -------------------------------------------------------- Balanced Binary Tree
+VIS["balanced-binary-tree"] = {
+  inputs: [],
+  code: `def isBalanced(root):
+    def dfs(node):
+        if not node:
+            return 0
+        lh = dfs(node.left)
+        rh = dfs(node.right)
+        if lh == -1 or rh == -1 or abs(lh - rh) > 1:
+            return -1
+        return 1 + max(lh, rh)
+    return dfs(root) != -1`,
+  gen() {
+    const f = mkFrames();
+    const tree = [3, 9, 20, null, null, 15, 7, null, null, null, null, 8, null, null, null];
+    const T = hl => ({ t: "tree", label: "tree", v: tree, hl });
+    f.add(`Bottom-up DFS returns each subtree's height — or −1 the instant anything is unbalanced, short-circuiting the rest.`, 2, [T({})]);
+    let failed = false;
+    const dfs = i => {
+      if (i === -1 || failed) return 0;
+      const [l, r] = heapKids(tree, i);
+      const lh = dfs(l), rh = dfs(r);
+      if (failed) return -1;
+      if (Math.abs(lh - rh) > 1) {
+        failed = true;
+        f.add(`Node ${tree[i]}: heights ${lh} vs ${rh} differ by ${Math.abs(lh - rh)} > 1 — unbalanced! Bubble −1 all the way up.`, 8, [T({ [i]: "r" })], true);
+        return -1;
+      }
+      f.add(`Node ${tree[i]}: heights ${lh} and ${rh} — balanced here. Return height ${1 + Math.max(lh, rh)}.`, 9, [T({ [i]: "g" })]);
+      return 1 + Math.max(lh, rh);
+    };
+    if (dfs(0) !== -1) {
+      f.add(`Every node balanced — return True. O(n): each node computes its height exactly once.`, 10, [T(Object.fromEntries(tree.map((v, i) => [i, v !== null ? "g" : undefined]).filter(([, c]) => c)))], true);
+    }
+    return f;
+  },
+};
+
+// ----------------------------------------------------------------- Same Tree
+VIS["same-tree"] = {
+  inputs: [],
+  code: `def isSameTree(p, q):
+    if not p and not q:
+        return True
+    if not p or not q or p.val != q.val:
+        return False
+    return (isSameTree(p.left, q.left) and
+            isSameTree(p.right, q.right))`,
+  gen() {
+    const f = mkFrames();
+    const p = [1, 2, 3, 4, null, null, null, null, null, null, null, null, null, null, null];
+    const q = [1, 2, 3, 4, null, null, null, null, null, null, null, null, null, null, null];
+    const P = hl => ({ t: "tree", label: "tree p", v: p, hl });
+    const Q = hl => ({ t: "tree", label: "tree q", v: q, hl });
+    f.add(`Walk both trees in lockstep: the pair must agree at every position — both missing, or both present with equal values.`, 2, [P({}), Q({})]);
+    let same = true;
+    const dfs = i => {
+      if (!same) return;
+      const pv = i < p.length ? p[i] : null, qv = i < q.length ? q[i] : null;
+      if (pv === null && qv === null) return;
+      if (pv === null || qv === null || pv !== qv) {
+        same = false;
+        f.add(`Mismatch at this position: p has ${pv ?? "nothing"}, q has ${qv ?? "nothing"} — trees differ. Return False.`, 5, [P({ [i]: "r" }), Q({ [i]: "r" })], true);
+        return;
+      }
+      f.add(`Both trees have ${pv} here — match. Recurse into both subtrees.`, 6, [P({ [i]: "g" }), Q({ [i]: "g" })]);
+      dfs(2 * i + 1);
+      dfs(2 * i + 2);
+    };
+    dfs(0);
+    if (same) {
+      const done = t => Object.fromEntries(t.map((v, i) => [i, v !== null ? "g" : undefined]).filter(([, c]) => c));
+      f.add(`Every position matched — the trees are identical. Return True. O(n).`, 3, [P(done(p)), Q(done(q))], true);
+    }
+    return f;
+  },
+};
+
+// ----------------------------------------------------- Subtree of Another Tree
+VIS["subtree-of-another-tree"] = {
+  inputs: [],
+  code: `def isSubtree(root, subRoot):
+    def same(a, b):
+        if not a and not b:
+            return True
+        if not a or not b or a.val != b.val:
+            return False
+        return (same(a.left, b.left) and
+                same(a.right, b.right))
+    if not root:
+        return False
+    if same(root, subRoot):
+        return True
+    return (isSubtree(root.left, subRoot) or
+            isSubtree(root.right, subRoot))`,
+  gen() {
+    const f = mkFrames();
+    const root = [3, 4, 5, 1, 2, null, null, null, null, null, null, null, null, null, null];
+    const sub = [4, 1, 2, null, null, null, null, null, null, null, null, null, null, null, null];
+    const R = hl => ({ t: "tree", label: "root", v: root, hl });
+    const S = hl => ({ t: "tree", label: "subRoot", v: sub, hl });
+    const same = (i, j) => {
+      const a = i < root.length ? root[i] : null, b = j < sub.length ? sub[j] : null;
+      if (a === null && b === null) return true;
+      if (a === null || b === null || a !== b) return false;
+      return same(2 * i + 1, 2 * j + 1) && same(2 * i + 2, 2 * j + 2);
+    };
+    const subMark = Object.fromEntries(sub.map((v, i) => [i, v !== null ? "y" : undefined]).filter(([, c]) => c));
+    f.add(`For every node of the main tree, ask: is the subtree rooted here IDENTICAL to subRoot? (An O(n·m) check that's plenty fast in practice.)`, 2, [R({}), S(subMark)]);
+    const order = root.map((v, i) => (v !== null ? i : -1)).filter(i => i >= 0);
+    for (const i of order) {
+      if (root[i] !== sub[0]) {
+        f.add(`Node ${root[i]} ≠ subRoot's root ${sub[0]} — can't anchor a match here, move on.`, 5, [R({ [i]: "d" }), S(subMark)]);
+        continue;
+      }
+      if (same(i, 0)) {
+        const hl = {};
+        const paint = (a, b) => {
+          if (b >= sub.length || sub[b] === null) return;
+          hl[a] = "g";
+          paint(2 * a + 1, 2 * b + 1);
+          paint(2 * a + 2, 2 * b + 2);
+        };
+        paint(i, 0);
+        f.add(`Node ${root[i]} matches, and the full same-tree check passes — subRoot appears here. Return True.`, 12, [R(hl), S(Object.fromEntries(Object.keys(subMark).map(k => [k, "g"])))], true);
+        return f;
+      }
+      f.add(`Node ${root[i]} matches subRoot's root, but the structures diverge below — keep searching.`, 11, [R({ [i]: "y" }), S(subMark)]);
+    }
+    f.add(`No node anchored a full match — subRoot is not a subtree. Return False.`, 15, [R({}), S(subMark)], true);
+    return f;
+  },
+};
+
+// ---------------------------------------------------- Binary Tree Right Side View
+VIS["binary-tree-right-side-view"] = {
+  inputs: [],
+  code: `def rightSideView(root):
+    res = []
+    queue = deque([root] if root else [])
+    while queue:
+        res.append(queue[-1].val)
+        for _ in range(len(queue)):
+            node = queue.popleft()
+            if node.left:
+                queue.append(node.left)
+            if node.right:
+                queue.append(node.right)
+    return res`,
+  gen() {
+    const f = mkFrames();
+    const tree = [1, 2, 3, null, 5, null, 4, null, null, null, null, null, null, null, null];
+    let queue = [0];
+    const res = [];
+    const T = hl => ({ t: "tree", label: "tree", v: tree, hl });
+    const R = () => ({ t: "set", label: "res (visible from the right)", v: res });
+    f.add(`Looking from the right you see exactly one node per level — the RIGHTMOST. BFS each level and keep its last node.`, 3, [T({}), R()]);
+    while (queue.length) {
+      const lastIdx = queue[queue.length - 1];
+      res.push(tree[lastIdx]);
+      const hl = Object.fromEntries(queue.map(i => [i, "p"]));
+      hl[lastIdx] = "g";
+      f.add(`Level [${queue.map(i => tree[i]).join(", ")}]: the rightmost is ${tree[lastIdx]} — that's what the right side sees.`, 5, [T(hl), R()]);
+      const next = [];
+      for (const i of queue) {
+        const [l, r] = heapKids(tree, i);
+        if (l !== -1) next.push(l);
+        if (r !== -1) next.push(r);
+      }
+      queue = next;
+    }
+    f.add(`Right side view: [${res.join(", ")}]. O(n).`, 12, [T({}), R()], true);
+    return f;
+  },
+};
+
+// ------------------------------------------------ Count Good Nodes in Binary Tree
+VIS["count-good-nodes-in-binary-tree"] = {
+  inputs: [],
+  code: `def goodNodes(root):
+    def dfs(node, best):
+        if not node:
+            return 0
+        good = 1 if node.val >= best else 0
+        best = max(best, node.val)
+        return (good + dfs(node.left, best)
+                     + dfs(node.right, best))
+    return dfs(root, root.val)`,
+  gen() {
+    const f = mkFrames();
+    const tree = [3, 1, 4, 3, null, 1, 5, null, null, null, null, null, null, null, null];
+    let count = 0;
+    const T = hl => ({ t: "tree", label: "tree", v: tree, hl });
+    const V = () => ({ t: "vars", entries: [["good nodes", count]] });
+    f.add(`A node is good if nothing GREATER sits on its path from the root. DFS just carries the running max down.`, 2, [T({}), V()]);
+    const dfs = (i, best) => {
+      if (i === -1) return;
+      const v = tree[i];
+      const good = v >= best;
+      if (good) count++;
+      f.add(`Node ${v}: path max so far is ${best} — ${good ? `${v} ≥ ${best}, GOOD (total ${count})` : `${v} < ${best}, not good`}. Pass max ${Math.max(best, v)} down.`, good ? 5 : 6,
+        [T({ [i]: good ? "g" : "d" }), V()]);
+      const [l, r] = heapKids(tree, i);
+      dfs(l, Math.max(best, v));
+      dfs(r, Math.max(best, v));
+    };
+    dfs(0, tree[0]);
+    f.add(`${count} good nodes. One DFS pass — O(n).`, 9, [T({}), V()], true);
+    return f;
+  },
+};
+
+// ------------------------------------------------ Kth Smallest Element in a BST
+VIS["kth-smallest-element-in-a-bst"] = {
+  inputs: [{ name: "k", label: "k", type: "int", def: "3", min: 1, max: 5 }],
+  code: `def kthSmallest(root, k):
+    stack = []
+    node = root
+    while True:
+        while node:
+            stack.append(node)
+            node = node.left
+        node = stack.pop()
+        k -= 1
+        if k == 0:
+            return node.val
+        node = node.right`,
+  gen(k) {
+    const f = mkFrames();
+    const tree = [5, 3, 6, 2, 4, null, null, null, null, null, null, null, null, null, null];
+    const total = tree.filter(v => v !== null).length;
+    if (k > total) k = total;
+    const stack = [];
+    const T = hl => ({ t: "tree", label: "BST", v: tree, hl });
+    const S = () => ({ t: "stack", label: "stack", v: stack.map(i => tree[i]) });
+    const V = left => ({ t: "vars", entries: [["k (remaining)", left]] });
+    f.add(`In-order traversal visits a BST in ascending order — so just walk in-order and stop at the ${k}th visit. No sorting, no extra array.`, 2, [T({}), S(), V(k)]);
+    let node = 0, left = k;
+    let guard = 0;
+    while (guard++ < 40) {
+      while (node !== -1) {
+        stack.push(node);
+        f.add(`Push ${tree[node]} and dive left — smallest values live leftmost.`, 6, [T({ [node]: "p" }), S(), V(left)]);
+        const [l] = heapKids(tree, node);
+        node = l;
+      }
+      const i = stack.pop();
+      left--;
+      if (left === 0) {
+        f.add(`Visit ${tree[i]} — that's the ${k}th smallest! Return ${tree[i]}. O(h + k).`, 11, [T({ [i]: "g" }), S(), V(left)], true);
+        return f;
+      }
+      f.add(`Visit ${tree[i]} (${k - left} of ${k}) — not there yet, continue into its right subtree.`, 9, [T({ [i]: "y" }), S(), V(left)]);
+      const [, r] = heapKids(tree, i);
+      node = r;
+    }
+    return f;
+  },
+};
+
+// ----------------------- Construct Binary Tree from Preorder and Inorder
+VIS["construct-binary-tree-from-preorder-and-inorder-traversal"] = {
+  inputs: [],
+  code: `def buildTree(preorder, inorder):
+    if not preorder:
+        return None
+    root = TreeNode(preorder[0])
+    mid = inorder.index(preorder[0])
+    root.left = buildTree(preorder[1:mid+1],
+                          inorder[:mid])
+    root.right = buildTree(preorder[mid+1:],
+                           inorder[mid+1:])
+    return root`,
+  gen() {
+    const f = mkFrames();
+    const preorder = [3, 9, 20, 15, 7];
+    const inorder = [9, 3, 15, 20, 7];
+    const built = new Array(15).fill(null);
+    const P = hl => ({ t: "arr", label: "preorder (root comes first)", v: preorder, hl });
+    const I = hl => ({ t: "arr", label: "inorder (left | root | right)", v: inorder, hl });
+    const T = hl => ({ t: "tree", label: "tree under construction", v: built, hl });
+    f.add(`Preorder hands us each root in order; inorder tells us what's left vs right of that root. Recurse on the two sides.`, 4, [P({}), I({}), T({})]);
+    const build = (pLo, pHi, iLo, iHi, pos) => {
+      if (pLo > pHi) return;
+      const rootVal = preorder[pLo];
+      const mid = inorder.indexOf(rootVal);
+      built[pos] = rootVal;
+      const iHl = { [mid]: "g" };
+      for (let x = iLo; x < mid; x++) iHl[x] = "p";
+      for (let x = mid + 1; x <= iHi; x++) iHl[x] = "y";
+      f.add(`preorder[${pLo}] = ${rootVal} is the next root. In inorder it sits at index ${mid}: [${inorder.slice(iLo, mid).join(",") || "∅"}] goes left, [${inorder.slice(mid + 1, iHi + 1).join(",") || "∅"}] goes right.`, 5,
+        [P({ [pLo]: "g" }), I(iHl), T({ [pos]: "g" })]);
+      const leftSize = mid - iLo;
+      build(pLo + 1, pLo + leftSize, iLo, mid - 1, 2 * pos + 1);
+      build(pLo + leftSize + 1, pHi, mid + 1, iHi, 2 * pos + 2);
+    };
+    build(0, preorder.length - 1, 0, inorder.length - 1, 0);
+    f.add(`Tree fully reconstructed. With a value→index map for inorder, this is O(n).`, 10, [P({}), I({}), T(Object.fromEntries(built.map((v, i) => [i, v !== null ? "g" : undefined]).filter(([, c]) => c)))], true);
+    return f;
+  },
+};
+
+// -------------------------------------------------- Binary Tree Maximum Path Sum
+VIS["binary-tree-maximum-path-sum"] = {
+  inputs: [],
+  code: `def maxPathSum(root):
+    best = float("-inf")
+    def gain(node):
+        nonlocal best
+        if not node:
+            return 0
+        lg = max(gain(node.left), 0)
+        rg = max(gain(node.right), 0)
+        best = max(best, node.val + lg + rg)
+        return node.val + max(lg, rg)
+    gain(root)
+    return best`,
+  gen() {
+    const f = mkFrames();
+    const tree = [-10, 9, 20, null, null, 15, 7, null, null, null, null, null, null, null, null];
+    let best = -Infinity;
+    const T = hl => ({ t: "tree", label: "tree", v: tree, hl });
+    const V = () => ({ t: "vars", entries: [["best", best === -Infinity ? "-∞" : best]] });
+    f.add(`Each node reports its best DOWNWARD gain (never negative — a bad subtree is simply not taken). The best full path through a node is val + left gain + right gain.`, 3, [T({}), V()]);
+    const gain = i => {
+      if (i === -1) return 0;
+      const [l, r] = heapKids(tree, i);
+      const lg = Math.max(gain(l), 0), rg = Math.max(gain(r), 0);
+      const through = tree[i] + lg + rg;
+      const improved = through > best;
+      best = Math.max(best, through);
+      f.add(`Node ${tree[i]}: gains left ${lg}, right ${rg} → path through it sums to ${through}.${improved ? " New best!" : ""} Report ${tree[i] + Math.max(lg, rg)} upward.`, 9,
+        [T({ [i]: improved ? "g" : "p" }), V()]);
+      return tree[i] + Math.max(lg, rg);
+    };
+    gain(0);
+    f.add(`Maximum path sum: ${best} (here the path 15 → 20 → 7 never even touches the root). O(n).`, 12, [T({ 2: "g", 5: "g", 6: "g" }), V()], true);
+    return f;
+  },
+};
+
+// ------------------------------------- Serialize and Deserialize Binary Tree
+VIS["serialize-and-deserialize-binary-tree"] = {
+  inputs: [],
+  code: `def serialize(root):
+    out = []
+    def dfs(node):
+        if not node:
+            out.append("N")
+            return
+        out.append(str(node.val))
+        dfs(node.left)
+        dfs(node.right)
+    dfs(root)
+    return ",".join(out)
+
+def deserialize(data):
+    vals = iter(data.split(","))
+    def build():
+        v = next(vals)
+        if v == "N":
+            return None
+        node = TreeNode(int(v))
+        node.left = build()
+        node.right = build()
+        return node
+    return build()`,
+  gen() {
+    const f = mkFrames();
+    const tree = [1, 2, 3, null, null, 4, 5, null, null, null, null, null, null, null, null];
+    const out = [];
+    const T = hl => ({ t: "tree", label: "tree", v: tree, hl });
+    const O = hl => ({ t: "arr", label: "serialized tokens", v: out.length ? out : ["·"], hl });
+    f.add(`Preorder DFS with explicit "N" for nulls captures the tree's exact shape — no indices, no math, fully reversible.`, 3, [T({}), O({})]);
+    const dfs = i => {
+      const v = i !== -1 && i < tree.length && tree[i] !== null ? tree[i] : null;
+      if (v === null) {
+        out.push("N");
+        f.add(`Nothing here — emit "N" so the decoder knows this branch ends.`, 5, [T({}), O({ [out.length - 1]: "y" })]);
+        return;
+      }
+      out.push(String(v));
+      f.add(`Visit ${v} — emit "${v}", then its left subtree, then its right.`, 7, [T({ [i]: "p" }), O({ [out.length - 1]: "p" })]);
+      const [l, r] = [2 * i + 1, 2 * i + 2].map(k => (k < tree.length && tree[k] !== null ? k : -1));
+      dfs(l);
+      dfs(r);
+    };
+    dfs(0);
+    f.add(`Serialized: "${out.join(",")}". Now deserialize by consuming tokens in the SAME preorder.`, 11, [T({}), O({})]);
+    const rebuilt = new Array(15).fill(null);
+    let ptr = 0;
+    const R = hl => ({ t: "tree", label: "rebuilt tree", v: rebuilt, hl });
+    const build = pos => {
+      const v = out[ptr++];
+      if (v === "N") return;
+      if (pos < rebuilt.length) rebuilt[pos] = Number(v);
+      f.add(`Consume "${v}" → place node ${v}, then recursively build its left and right children.`, 19, [O({ [ptr - 1]: "g" }), R({ [pos]: "g" })]);
+      build(2 * pos + 1);
+      build(2 * pos + 2);
+    };
+    build(0);
+    f.add(`Round trip complete — the rebuilt tree is identical. O(n) both ways.`, 23, [O({}), R(Object.fromEntries(rebuilt.map((v, i) => [i, v !== null ? "g" : undefined]).filter(([, c]) => c)))], true);
+    return f;
+  },
+};
+
+// ============================ batch 8: linked lists, binary search, sudoku ============================
+
+// ------------------------------------------------------------------ Reorder List
+VIS["reorder-list"] = {
+  inputs: [{ name: "vals", label: "list values", type: "arr", def: "[1, 2, 3, 4, 5]", max: 8, min: 3 }],
+  code: `def reorderList(head):
+    # 1) find the middle (slow / fast)
+    slow, fast = head, head
+    while fast and fast.next:
+        slow = slow.next
+        fast = fast.next.next
+    # 2) reverse the second half
+    second = slow.next
+    slow.next = None
+    prev = None
+    while second:
+        second.next, prev, second = \\
+            prev, second, second.next
+    # 3) interleave the two halves
+    first = head
+    while prev:
+        first.next, prev.next = prev, first.next
+        first, prev = prev.next, prev.next`,
+  gen(vals) {
+    const f = mkFrames();
+    const n = vals.length;
+    const LL = (arr, ptrs, hl, label) => ({ t: "ll", label, v: arr.map((v, i) => ({ val: v, dir: i === arr.length - 1 ? null : "R" })), ptrs: ptrs || {}, hl: hl || {} });
+    let slow = 0, fast = 0;
+    f.add(`Three classic tricks chained: find the middle, reverse the back half, then zip the halves together.`, 3, [LL(vals, { 0: "slow fast" }, {}, "list")]);
+    while (fast < n - 1 && fast + 1 < n - 1 + 1 && fast + 2 <= n) {
+      if (fast + 2 > n - 1 && fast + 1 > n - 1) break;
+      slow++;
+      fast = Math.min(fast + 2, n);
+      if (fast >= n - 1 && slow > 0) { break; }
+    }
+    // recompute cleanly
+    slow = 0; fast = 0;
+    while (fast < n - 1 && fast + 1 <= n - 1) {
+      slow++;
+      fast += 2;
+      f.add(`slow → node ${vals[slow]}, fast jumps two — when fast hits the end, slow is the middle.`, 6,
+        [LL(vals, fast <= n - 1 ? { [slow]: "slow", [fast]: "fast" } : { [slow]: "slow" }, { [slow]: "p" }, "list")]);
+      if (fast >= n - 1) break;
+    }
+    const firstHalf = vals.slice(0, slow + 1);
+    const secondHalf = vals.slice(slow + 1);
+    f.add(`Split after node ${vals[slow]}: first half [${firstHalf.join(", ")}], second half [${secondHalf.join(", ")}].`, 9,
+      [LL(firstHalf, {}, {}, "first half"), LL(secondHalf, {}, {}, "second half")]);
+    const revSecond = [...secondHalf].reverse();
+    f.add(`Reverse the second half in place → [${revSecond.join(", ")}] (same pointer-flipping walk as Reverse Linked List).`, 13,
+      [LL(firstHalf, {}, {}, "first half"), LL(revSecond, {}, Object.fromEntries(revSecond.map((_, i) => [i, "y"])), "second half (reversed)")]);
+    const out = [];
+    let i = 0, j = 0;
+    while (i < firstHalf.length || j < revSecond.length) {
+      if (i < firstHalf.length) out.push(firstHalf[i++]);
+      if (j < revSecond.length) out.push(revSecond[j++]);
+    }
+    let k = 0;
+    const merged = [];
+    i = 0; j = 0;
+    while (i < firstHalf.length || j < revSecond.length) {
+      if (i < firstHalf.length) { merged.push(firstHalf[i]); i++; }
+      if (j < revSecond.length) { merged.push(revSecond[j]); j++; }
+      f.add(`Interleave: take one from the front, one from the (reversed) back → [${merged.join(", ")}].`, 17,
+        [LL(merged, {}, { [merged.length - 1]: "g" }, "reordered")]);
+      k++;
+    }
+    f.add(`Reordered: L0 → Ln → L1 → Ln−1 … = [${merged.join(" → ")}]. All three phases are O(n), O(1) space.`, 18,
+      [LL(merged, {}, Object.fromEntries(merged.map((_, x) => [x, "g"])), "reordered")], true);
+    return f;
+  },
+};
+
+// -------------------------------------------- Copy List with Random Pointer
+VIS["copy-list-with-random-pointer"] = {
+  inputs: [],
+  code: `def copyRandomList(head):
+    old_to_new = {None: None}
+    cur = head
+    while cur:                      # pass 1: clone nodes
+        old_to_new[cur] = Node(cur.val)
+        cur = cur.next
+    cur = head
+    while cur:                      # pass 2: wire pointers
+        copy = old_to_new[cur]
+        copy.next = old_to_new[cur.next]
+        copy.random = old_to_new[cur.random]
+        cur = cur.next
+    return old_to_new[head]`,
+  gen() {
+    const f = mkFrames();
+    const vals = [7, 13, 11, 10, 1];
+    const randoms = [null, 0, 4, 2, 0]; // index of random target
+    const cloned = [];
+    const LL = hl => ({
+      t: "ll", label: "original (random targets shown below)",
+      v: vals.map((v, i) => ({ val: v, dir: i === vals.length - 1 ? null : "R" })),
+      ptrs: Object.fromEntries(vals.map((_, i) => [i, randoms[i] === null ? "r→∅" : `r→${vals[randoms[i]]}`])),
+      hl: hl || {},
+    });
+    const M = hl => ({ t: "kv", label: "old_to_new", entries: cloned.map(i => [`node ${vals[i]}`, `clone ${vals[i]}'`]), hl });
+    f.add(`The random pointers can jump anywhere — so first clone every node into a map, THEN wire pointers by translating old → new.`, 2, [LL(), M()]);
+    for (let i = 0; i < vals.length; i++) {
+      cloned.push(i);
+      f.add(`Pass 1: clone node ${vals[i]} → ${vals[i]}' and record it in the map.`, 5, [LL({ [i]: "p" }), M({ [`node ${vals[i]}`]: "p" })]);
+    }
+    for (let i = 0; i < vals.length; i++) {
+      const rnd = randoms[i] === null ? "∅" : `${vals[randoms[i]]}'`;
+      const nxt = i === vals.length - 1 ? "∅" : `${vals[i + 1]}'`;
+      f.add(`Pass 2: ${vals[i]}'.next = ${nxt}, ${vals[i]}'.random = ${rnd} — both read straight from the map, even forward references.`, 11,
+        [LL({ [i]: "g", ...(randoms[i] !== null ? { [randoms[i]]: "y" } : {}) }), M({ [`node ${vals[i]}`]: "g" })]);
+    }
+    f.add(`Deep copy complete — every next and random pointer lands on a clone, never an original. Two passes, O(n) time and space.`, 13, [LL(), M()], true);
+    return f;
+  },
+};
+
+// ----------------------------------------------------------------- LRU Cache
+VIS["lru-cache"] = {
+  inputs: [],
+  code: `class LRUCache:  # capacity 2 in this demo
+    def __init__(self, capacity):
+        self.cap = capacity
+        self.cache = {}   # key -> list node
+        # doubly linked list keeps recency:
+        # left = least recent, right = most recent
+
+    def get(self, key):
+        if key not in self.cache:
+            return -1
+        self._move_to_right(key)   # O(1) unlink+relink
+        return self.cache[key].val
+
+    def put(self, key, value):
+        self.cache[key] = Node(key, value)
+        self._move_to_right(key)
+        if len(self.cache) > self.cap:
+            lru = self._leftmost()  # least recent
+            del self.cache[lru.key]`,
+  gen() {
+    const f = mkFrames();
+    const cap = 2;
+    const cache = new Map(); // key -> value, insertion order = recency (left = LRU)
+    const C = hl => ({ t: "kv", label: "cache (map)", entries: [...cache.entries()].map(([k, v]) => [k, v]), hl });
+    const O = hl => ({ t: "arr", label: "recency (LRU → MRU)", v: cache.size ? [...cache.keys()] : ["·"], hl });
+    f.add(`Two structures, one job each: a hash map finds entries in O(1); a doubly linked list keeps them in recency order so eviction is also O(1).`, 3, [C(), O()]);
+    const touch = k => { const v = cache.get(k); cache.delete(k); cache.set(k, v); };
+    const ops = [
+      ["put", 1, 1], ["put", 2, 2], ["get", 1], ["put", 3, 3], ["get", 2], ["put", 4, 4], ["get", 1], ["get", 3], ["get", 4],
+    ];
+    for (const [op, key, val] of ops) {
+      if (op === "put") {
+        cache.set(key, val);
+        touch(key);
+        if (cache.size > cap) {
+          const lru = cache.keys().next().value;
+          f.add(`put(${key}, ${val}): insert as most-recent — over capacity! The leftmost (least recent) key ${lru} is evicted.`, 19,
+            [C({ [lru]: "r", [key]: "p" }), O({ 0: "r" })]);
+          cache.delete(lru);
+        } else {
+          f.add(`put(${key}, ${val}): store it and mark it most-recent (rightmost).`, 16, [C({ [key]: "p" }), O({ [cache.size - 1]: "p" })]);
+        }
+      } else {
+        if (!cache.has(key)) {
+          f.add(`get(${key}): not in the map — return -1.`, 10, [C(), O()]);
+        } else {
+          touch(key);
+          f.add(`get(${key}) → ${cache.get(key)}. Accessing it moves it to most-recent — the list re-links in O(1).`, 12,
+            [C({ [key]: "g" }), O({ [cache.size - 1]: "g" })]);
+        }
+      }
+    }
+    f.add(`Every get and put ran in O(1): the map for lookup, the recency list for ordering and eviction.`, 12, [C(), O()], true);
+    return f;
+  },
+};
+
+// --------------------------------------------------------- Merge k Sorted Lists
+VIS["merge-k-sorted-lists"] = {
+  inputs: [],
+  code: `def mergeKLists(lists):
+    heap = [(l.val, i, l)
+            for i, l in enumerate(lists) if l]
+    heapify(heap)
+    dummy = tail = ListNode()
+    while heap:
+        val, i, node = heappop(heap)
+        tail.next = node
+        tail = tail.next
+        if node.next:
+            heappush(heap,
+                (node.next.val, i, node.next))
+    return dummy.next`,
+  gen() {
+    const f = mkFrames();
+    const lists = [[1, 4, 5], [1, 3, 4], [2, 6]];
+    const idx = lists.map(() => 0);
+    const out = [];
+    const L = (li, hl) => ({
+      t: "arr", label: `list ${li + 1}`, v: lists[li],
+      hl: { ...Object.fromEntries(lists[li].map((_, x) => [x, x < idx[li] ? "d" : undefined]).filter(([, c]) => c)), ...(hl || {}) },
+      ptrs: idx[li] < lists[li].length ? { [idx[li]]: "head" } : {},
+    });
+    const heapView = () => lists.map((l, li) => (idx[li] < l.length ? [l[idx[li]], li] : null)).filter(Boolean).sort((a, b) => a[0] - b[0]);
+    const H = hl => ({ t: "set", label: "min-heap of current heads", v: heapView().map(([v, li]) => `${v} (list ${li + 1})`), hl });
+    const O = hl => ({ t: "arr", label: "merged", v: out.length ? out : ["·"], hl });
+    f.add(`Only k candidates can be the next-smallest — the k list heads. Keep them in a min-heap: pop the smallest, push its successor.`, 3,
+      [L(0), L(1), L(2), H(), O({})]);
+    while (heapView().length) {
+      const [val, li] = heapView()[0];
+      idx[li]++;
+      out.push(val);
+      const succ = idx[li] < lists[li].length ? lists[li][idx[li]] : null;
+      f.add(`Pop ${val} (list ${li + 1}'s head) — append it.${succ !== null ? ` Its successor ${succ} enters the heap.` : ` List ${li + 1} is exhausted.`}`, succ !== null ? 11 : 7,
+        [L(0), L(1), L(2), H(succ !== null ? { [`${succ} (list ${li + 1})`]: "y" } : {}), O({ [out.length - 1]: "g" })]);
+    }
+    f.add(`Merged: [${out.join(", ")}]. Each of the n nodes cost one O(log k) heap operation → O(n log k).`, 13,
+      [O(Object.fromEntries(out.map((_, x) => [x, "g"])))], true);
+    return f;
+  },
+};
+
+// ------------------------------------------------- Reverse Nodes in k-Group
+VIS["reverse-nodes-in-k-group"] = {
+  inputs: [
+    { name: "vals", label: "list values", type: "arr", def: "[1, 2, 3, 4, 5]", max: 8, min: 1 },
+    { name: "k", label: "k", type: "int", def: "2", min: 1, max: 4 },
+  ],
+  code: `def reverseKGroup(head, k):
+    dummy = ListNode(0, head)
+    prev_group = dummy
+    while True:
+        kth = prev_group          # find the k-th node
+        for _ in range(k):
+            kth = kth.next
+            if not kth:
+                return dummy.next # < k left: keep order
+        nxt_group = kth.next
+        prev, cur = nxt_group, prev_group.next
+        while cur != nxt_group:   # reverse the group
+            cur.next, prev, cur = prev, cur, cur.next
+        start = prev_group.next   # stitch it back in
+        prev_group.next = kth
+        prev_group = start`,
+  gen(vals, k) {
+    const f = mkFrames();
+    let arr = [...vals];
+    const LL = (hl, label) => ({ t: "ll", label: label || "list", v: arr.map((v, i) => ({ val: v, dir: i === arr.length - 1 ? null : "R" })), ptrs: {}, hl: hl || {} });
+    f.add(`Process the list in blocks of ${k}: count ${k} nodes ahead, reverse just that block in place, stitch it to the previous one.`, 3, [LL()]);
+    let start = 0;
+    while (start + k <= arr.length) {
+      const hl = {};
+      for (let x = start; x < start + k; x++) hl[x] = "w";
+      f.add(`Group [${arr.slice(start, start + k).join(", ")}] has a full ${k} nodes — reverse it.`, 6, [LL(hl)]);
+      const block = arr.slice(start, start + k).reverse();
+      arr = [...arr.slice(0, start), ...block, ...arr.slice(start + k)];
+      const hl2 = {};
+      for (let x = start; x < start + k; x++) hl2[x] = "g";
+      f.add(`Reversed in place and stitched: […${start ? " " : ""}${arr.slice(0, start).join(", ")}${start ? ", " : ""}${block.join(", ")}, …]. The block's old first node now links to the next group.`, 16, [LL(hl2)]);
+      start += k;
+    }
+    if (start < arr.length) {
+      const hl = {};
+      for (let x = start; x < arr.length; x++) hl[x] = "d";
+      f.add(`Only ${arr.length - start} node(s) remain — fewer than ${k}, so they keep their original order.`, 9, [LL(hl)]);
+    }
+    f.add(`Final list: [${arr.join(" → ")}]. Each node's pointer is rewritten once → O(n), O(1) space.`, 9,
+      [LL(Object.fromEntries(arr.map((_, x) => [x, "g"])))], true);
+    return f;
+  },
+};
+
+// ------------------------------------------------- Time Based Key-Value Store
+VIS["time-based-key-value-store"] = {
+  inputs: [],
+  code: `class TimeMap:
+    def __init__(self):
+        self.store = {}  # key -> [(timestamp, value)]
+
+    def set(self, key, value, timestamp):
+        self.store.setdefault(key, []).append(
+            (timestamp, value))
+
+    def get(self, key, timestamp):
+        pairs = self.store.get(key, [])
+        res = ""
+        l, r = 0, len(pairs) - 1
+        while l <= r:
+            m = (l + r) // 2
+            if pairs[m][0] <= timestamp:
+                res = pairs[m][1]
+                l = m + 1
+            else:
+                r = m - 1
+        return res`,
+  gen() {
+    const f = mkFrames();
+    const store = {};
+    const S = hl => ({ t: "kv", label: "store", entries: Object.entries(store).map(([k, v]) => [k, v.map(([t, x]) => `(t${t}: ${x})`).join(" ")], []), hl });
+    f.add(`Timestamps only ever increase, so each key's history is already sorted — get() is a binary search for the rightmost timestamp ≤ the query.`, 3, [S()]);
+    const ops = [
+      ["set", "foo", "bar", 1], ["get", "foo", 1], ["get", "foo", 3],
+      ["set", "foo", "bar2", 4], ["get", "foo", 4], ["get", "foo", 5], ["get", "foo", 0],
+    ];
+    for (const op of ops) {
+      if (op[0] === "set") {
+        const [, key, value, ts] = op;
+        (store[key] = store[key] || []).push([ts, value]);
+        f.add(`set("${key}", "${value}", t=${ts}) — append to the key's history (stays sorted for free).`, 6, [S({ [key]: "p" })]);
+      } else {
+        const [, key, ts] = op;
+        const pairs = store[key] || [];
+        let l = 0, r = pairs.length - 1, res = "";
+        while (l <= r) {
+          const m = (l + r) >> 1;
+          if (pairs[m][0] <= ts) { res = pairs[m][1]; l = m + 1; } else { r = m - 1; }
+        }
+        f.add(`get("${key}", t=${ts}): binary search the history [${pairs.map(([t]) => "t" + t).join(", ")}] for the last timestamp ≤ ${ts} → ${res ? `"${res}"` : '"" (nothing that early)'}.`, 20,
+          [S({ [key]: res ? "g" : "r" })]);
+      }
+    }
+    f.add(`set is O(1) amortized; get is O(log n) per key. No sorting ever needed.`, 20, [S()], true);
+    return f;
+  },
+};
+
+// ------------------------------------------------ Median of Two Sorted Arrays
+VIS["median-of-two-sorted-arrays"] = {
+  inputs: [
+    { name: "A", label: "A (sorted)", type: "arr", def: "[1, 3, 8, 9, 15]", max: 8, min: 1 },
+    { name: "B", label: "B (sorted)", type: "arr", def: "[7, 11, 18, 19, 21, 25]", max: 8, min: 1 },
+  ],
+  code: `def findMedianSortedArrays(A, B):
+    if len(A) > len(B):
+        A, B = B, A
+    total = len(A) + len(B)
+    half = total // 2
+    l, r = 0, len(A)
+    while True:
+        i = (l + r) // 2   # size of A's left part
+        j = half - i       # size of B's left part
+        Aleft  = A[i-1] if i > 0 else -inf
+        Aright = A[i]   if i < len(A) else inf
+        Bleft  = B[j-1] if j > 0 else -inf
+        Bright = B[j]   if j < len(B) else inf
+        if Aleft <= Bright and Bleft <= Aright:
+            if total % 2:
+                return min(Aright, Bright)
+            return (max(Aleft, Bleft) +
+                    min(Aright, Bright)) / 2
+        if Aleft > Bright:
+            r = i - 1
+        else:
+            l = i + 1`,
+  gen(A, B) {
+    const f = mkFrames();
+    A = [...A].sort((a, b) => a - b);
+    B = [...B].sort((a, b) => a - b);
+    if (A.length > B.length) [A, B] = [B, A];
+    const total = A.length + B.length;
+    const half = total >> 1;
+    let l = 0, r = A.length;
+    const view = (i, j, cls) => [
+      { t: "arr", label: `A (left part = first ${i})`, v: A, hl: Object.fromEntries(A.map((_, x) => [x, x < i ? (cls || "p") : undefined]).filter(([, c]) => c)) },
+      { t: "arr", label: `B (left part = first ${j})`, v: B, hl: Object.fromEntries(B.map((_, x) => [x, x < j ? (cls || "y") : undefined]).filter(([, c]) => c)) },
+    ];
+    const fmt = x => (x === -Infinity ? "-∞" : x === Infinity ? "+∞" : x);
+    f.add(`The median splits the ${total} values into halves of ${half}. Binary search how many of those ${half} come from A — B's share follows automatically.`, 5, view(0, half));
+    let guard = 0;
+    while (guard++ < 20) {
+      const i = (l + r) >> 1;
+      const j = half - i;
+      const Aleft = i > 0 ? A[i - 1] : -Infinity;
+      const Aright = i < A.length ? A[i] : Infinity;
+      const Bleft = j > 0 ? B[j - 1] : -Infinity;
+      const Bright = j < B.length ? B[j] : Infinity;
+      const V = { t: "vars", entries: [["Aleft", fmt(Aleft)], ["Aright", fmt(Aright)], ["Bleft", fmt(Bleft)], ["Bright", fmt(Bright)]] };
+      if (Aleft <= Bright && Bleft <= Aright) {
+        const ans = total % 2 ? Math.min(Aright, Bright) : (Math.max(Aleft, Bleft) + Math.min(Aright, Bright)) / 2;
+        f.add(`Partition (${i} | ${j}) is valid: every left value ≤ every right value. ${total % 2 ? `Odd total → median is min of the rights: ${ans}.` : `Even total → average the middle pair: ${ans}.`}`, 16,
+          [...view(i, j, "g"), V], true);
+        return f;
+      }
+      if (Aleft > Bright) {
+        f.add(`Try ${i} from A, ${j} from B: Aleft ${fmt(Aleft)} > Bright ${fmt(Bright)} — A contributes too much. Shrink A's share.`, 20, [...view(i, j), V]);
+        r = i - 1;
+      } else {
+        f.add(`Try ${i} from A, ${j} from B: Bleft ${fmt(Bleft)} > Aright ${fmt(Aright)} — A contributes too little. Grow A's share.`, 22, [...view(i, j), V]);
+        l = i + 1;
+      }
+    }
+    return f;
+  },
+};
+
+// ----------------------------------------------------------------- Valid Sudoku
+VIS["valid-sudoku"] = {
+  inputs: [],
+  code: `def isValidSudoku(board):
+    rows = defaultdict(set)
+    cols = defaultdict(set)
+    boxes = defaultdict(set)  # key: (r//3, c//3)
+    for r in range(9):
+        for c in range(9):
+            v = board[r][c]
+            if v == ".":
+                continue
+            if (v in rows[r] or v in cols[c]
+                    or v in boxes[(r//3, c//3)]):
+                return False
+            rows[r].add(v)
+            cols[c].add(v)
+            boxes[(r//3, c//3)].add(v)
+    return True`,
+  gen() {
+    const f = mkFrames();
+    const board = [
+      ["5","3",".",".","7",".",".",".","."],
+      ["6",".",".","1","9","5",".",".","."],
+      [".","9","8",".",".",".",".","6","."],
+      ["8",".",".",".","6",".",".",".","3"],
+      ["4",".",".","8",".","3",".",".","1"],
+      ["7",".",".",".","2",".",".",".","6"],
+      [".","6",".",".",".",".","2","8","."],
+      [".",".",".","4","1","9",".",".","5"],
+      [".",".",".",".","8",".",".","7","9"],
+    ];
+    const rows = Array.from({ length: 9 }, () => new Set());
+    const cols = Array.from({ length: 9 }, () => new Set());
+    const boxes = Array.from({ length: 9 }, () => new Set());
+    const G = (r, c, cls) => {
+      const hl = {};
+      if (r >= 0) {
+        for (let x = 0; x < 9; x++) { hl[r + "," + x] = "w"; hl[x + "," + c] = "w"; }
+        const br = Math.floor(r / 3) * 3, bc = Math.floor(c / 3) * 3;
+        for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) hl[(br + i) + "," + (bc + j)] = "w";
+        hl[r + "," + c] = cls;
+      }
+      return { t: "grid", label: "board (outlined = this cell's row, column, and box)", v: board, hl };
+    };
+    f.add(`One scan is enough: for every filled cell, remember its digit per-row, per-column, and per-3×3-box in hash sets. A repeat in any set is a violation.`, 4, [G(-1)]);
+    let step = 0;
+    for (let r = 0; r < 9; r++) {
+      for (let c = 0; c < 9; c++) {
+        const v = board[r][c];
+        if (v === ".") continue;
+        const box = Math.floor(r / 3) * 3 + Math.floor(c / 3);
+        if (rows[r].has(v) || cols[c].has(v) || boxes[box].has(v)) {
+          f.add(`(${r}, ${c}) = ${v}: already seen in this ${rows[r].has(v) ? "row" : cols[c].has(v) ? "column" : "box"} — invalid board. Return False.`, 12, [G(r, c, "r")], true);
+          return f;
+        }
+        rows[r].add(v); cols[c].add(v); boxes[box].add(v);
+        step++;
+        if (step % 5 === 0 || step <= 3) {
+          f.add(`(${r}, ${c}) = ${v}: new to row ${r}, column ${c}, and box ${box} — record it in all three sets. (${step} cells checked)`, 13, [G(r, c, "g")]);
+        }
+      }
+    }
+    f.add(`All 30 filled cells checked with zero repeats in any row, column, or box — the board is valid. O(81) = O(1).`, 16, [G(-1)], true);
+    return f;
+  },
+};
+
+// ============================ batch 9: heaps and tries ============================
+
+// -------------------------------------------- Kth Largest Element in a Stream
+VIS["kth-largest-element-in-a-stream"] = {
+  inputs: [],
+  code: `class KthLargest:
+    def __init__(self, k, nums):
+        self.k = k
+        self.heap = nums   # min-heap
+        heapify(self.heap)
+        while len(self.heap) > k:
+            heappop(self.heap)
+
+    def add(self, val):
+        heappush(self.heap, val)
+        if len(self.heap) > self.k:
+            heappop(self.heap)
+        return self.heap[0]`,
+  gen() {
+    const f = mkFrames();
+    const k = 3;
+    let heap = [4, 5, 8, 2].sort((a, b) => a - b);
+    const H = hl => ({ t: "set", label: `min-heap (size ≤ ${k}, smallest first)`, v: heap, hl });
+    f.add(`Keep only the k = ${k} largest values in a MIN-heap — its root (the smallest of the three) is exactly the ${k}rd largest overall.`, 5, [H()]);
+    while (heap.length > k) {
+      const dropped = heap[0];
+      heap = heap.slice(1);
+      f.add(`Initial heap too big — pop the smallest (${dropped}); it can never be top-${k}.`, 7, [H()]);
+    }
+    for (const val of [3, 5, 10, 9, 4]) {
+      heap.push(val);
+      heap.sort((a, b) => a - b);
+      if (heap.length > k) {
+        const dropped = heap[0];
+        heap = heap.slice(1);
+        f.add(`add(${val}): push it, then pop the smallest (${dropped}) to stay at size ${k}. The ${k}rd largest is now ${heap[0]}.`, 12, [H({ [heap[0]]: "g" })]);
+      } else {
+        f.add(`add(${val}) — heap still ≤ ${k}; the ${k}rd largest is ${heap[0]}.`, 12, [H({ [heap[0]]: "g" })]);
+      }
+    }
+    f.add(`Every add is O(log k), and the answer is always sitting at the heap root.`, 12, [H({ [heap[0]]: "g" })], true);
+    return f;
+  },
+};
+
+// ------------------------------------------------- K Closest Points to Origin
+VIS["k-closest-points-to-origin"] = {
+  inputs: [],
+  code: `def kClosest(points, k):
+    heap = []  # max-heap of size k (negated dist)
+    for x, y in points:
+        d = x*x + y*y
+        heappush(heap, (-d, x, y))
+        if len(heap) > k:
+            heappop(heap)  # drop the farthest kept
+    return [(x, y) for _, x, y in heap]`,
+  gen() {
+    const f = mkFrames();
+    const points = [[1, 3], [-2, 2], [5, 8], [0, 1], [2, 2]];
+    const k = 2;
+    let heap = []; // [d, x, y] kept sorted desc by d (front = farthest = heap root)
+    const P = hl => ({ t: "arr", label: "points (x, y)", v: points.map(([x, y]) => `(${x},${y})`), hl });
+    const H = hl => ({ t: "set", label: `max-heap of ${k} closest (farthest first)`, v: heap.map(([d, x, y]) => `(${x},${y}) d²=${d}`), hl });
+    f.add(`Keep the ${k} best in a MAX-heap keyed on distance: the root is the worst of the kept — the one to evict when someone closer shows up.`, 2, [P({}), H()]);
+    points.forEach(([x, y], i) => {
+      const d = x * x + y * y;
+      heap.push([d, x, y]);
+      heap.sort((a, b) => b[0] - a[0]);
+      if (heap.length > k) {
+        const [dd, xx, yy] = heap[0];
+        heap = heap.slice(1);
+        f.add(`(${x},${y}): d² = ${d}. Push it, then evict the farthest kept — (${xx},${yy}) with d² = ${dd}.`, 7, [P({ [i]: d < dd ? "g" : "y" }), H()]);
+      } else {
+        f.add(`(${x},${y}): d² = ${d} — heap not full yet, keep it.`, 5, [P({ [i]: "p" }), H()]);
+      }
+    });
+    f.add(`The ${k} closest points: ${heap.map(([, x, y]) => `(${x},${y})`).join(" ")}. O(n log k) — never sorts all n points.`, 8, [P({}), H(Object.fromEntries(heap.map(([d, x, y]) => [`(${x},${y}) d²=${d}`, "g"])))], true);
+    return f;
+  },
+};
+
+// ------------------------------------------- Kth Largest Element in an Array
+VIS["kth-largest-element-in-an-array"] = {
+  inputs: [
+    { name: "nums", label: "nums", type: "arr", def: "[3, 2, 1, 5, 6, 4]", max: 10, min: 1 },
+    { name: "k", label: "k", type: "int", def: "2", min: 1, max: 10 },
+  ],
+  code: `def findKthLargest(nums, k):
+    target = len(nums) - k   # its index if sorted
+    def quickselect(l, r):
+        pivot, p = nums[r], l
+        for i in range(l, r):
+            if nums[i] <= pivot:
+                nums[i], nums[p] = nums[p], nums[i]
+                p += 1
+        nums[p], nums[r] = nums[r], nums[p]
+        if p < target:
+            return quickselect(p + 1, r)
+        if p > target:
+            return quickselect(l, p - 1)
+        return nums[p]
+    return quickselect(0, len(nums) - 1)`,
+  gen(nums, k) {
+    const f = mkFrames();
+    nums = [...nums];
+    if (k > nums.length) k = nums.length;
+    const target = nums.length - k;
+    const A = (hl, ptrs, lo, hi) => {
+      const full = {};
+      if (lo !== undefined) for (let i = 0; i < nums.length; i++) if (i < lo || i > hi) full[i] = "d";
+      Object.assign(full, hl || {});
+      return { t: "arr", label: "nums (dimmed = outside current range)", v: nums, hl: full, ptrs };
+    };
+    f.add(`The ${k}th largest would sit at index ${target} if sorted. Quickselect partitions like quicksort but recurses into ONE side only — O(n) on average.`, 2, [A({}, { [target]: "target" })]);
+    const quickselect = (l, r) => {
+      const pivot = nums[r];
+      let p = l;
+      f.add(`Partition [${l}..${r}] around pivot ${pivot} (the last element): smaller values move to the front.`, 4, [A({ [r]: "y" }, { [target]: "target", [r]: "pivot" }, l, r)]);
+      for (let i = l; i < r; i++) {
+        if (nums[i] <= pivot) {
+          [nums[i], nums[p]] = [nums[p], nums[i]];
+          p++;
+        }
+      }
+      [nums[p], nums[r]] = [nums[r], nums[p]];
+      f.add(`Pivot ${pivot} lands at index ${p} — everything left of it is ≤, everything right is >.`, 9, [A({ [p]: "p" }, { [target]: "target", [p]: "p" }, l, r)]);
+      if (p < target) {
+        f.add(`${p} < target ${target} — the answer is in the RIGHT part. Recurse there and ignore the left entirely.`, 11, [A({}, { [target]: "target" }, p + 1, r)]);
+        return quickselect(p + 1, r);
+      }
+      if (p > target) {
+        f.add(`${p} > target ${target} — the answer is in the LEFT part. Recurse there.`, 13, [A({}, { [target]: "target" }, l, p - 1)]);
+        return quickselect(l, p - 1);
+      }
+      f.add(`Pivot landed exactly on the target index — the ${k}th largest is ${nums[p]}. Average O(n): n + n/2 + n/4 + … `, 14, [A({ [p]: "g" }, { [p]: "target" }, l, r)], true);
+      return nums[p];
+    };
+    quickselect(0, nums.length - 1);
+    return f;
+  },
+};
+
+// ---------------------------------------------------------------- Task Scheduler
+VIS["task-scheduler"] = {
+  inputs: [],
+  code: `def leastInterval(tasks, n):
+    counts = Counter(tasks)
+    max_freq = max(counts.values())
+    ties = sum(1 for c in counts.values()
+               if c == max_freq)
+    slots = (max_freq - 1) * (n + 1) + ties
+    return max(len(tasks), slots)`,
+  gen() {
+    const f = mkFrames();
+    const tasks = ["A", "A", "A", "B", "B", "B"];
+    const n = 2;
+    const counts = { A: 3, B: 3 };
+    const C = hl => ({ t: "kv", label: "task counts", entries: kvEntries(counts), hl });
+    const T = hl => ({ t: "arr", label: "tasks", v: tasks, hl });
+    f.add(`Only the MOST FREQUENT task matters: it forces the schedule's skeleton, and everything else fills its idle gaps.`, 2, [T({}), C()]);
+    f.add(`max_freq = 3 (both A and B). The most frequent task creates (3−1) = 2 gaps of width n+1 = ${n + 1}: A _ _ | A _ _ | A`, 3,
+      [{ t: "arr", label: "skeleton from A", v: ["A", "·", "·", "A", "·", "·", "A"], hl: { 0: "p", 3: "p", 6: "p" } }, C({ A: "p" })]);
+    f.add(`ties = 2 tasks share max_freq, so the final block holds both: slots = (3−1)·(${n}+1) + 2 = 8.`, 6,
+      [{ t: "arr", label: "schedule", v: ["A", "B", "idle", "A", "B", "idle", "A", "B"], hl: { 0: "p", 1: "y", 3: "p", 4: "y", 6: "p", 7: "y", 2: "d", 5: "d" } }, C()]);
+    f.add(`Answer: max(6 tasks, 8 slots) = 8 time units. If there were MORE fillers than gaps, the task count itself would win — hence the max(). O(n).`, 7,
+      [{ t: "arr", label: "schedule (8 units)", v: ["A", "B", "idle", "A", "B", "idle", "A", "B"], hl: { 2: "d", 5: "d" } }], true);
+    return f;
+  },
+};
+
+// ---------------------------------------------------------------- Design Twitter
+VIS["design-twitter"] = {
+  inputs: [],
+  code: `class Twitter:
+    def __init__(self):
+        self.time = 0
+        self.tweets = defaultdict(list)   # user -> [(t, id)]
+        self.follows = defaultdict(set)
+
+    def postTweet(self, user, tid):
+        self.tweets[user].append((self.time, tid))
+        self.time += 1
+
+    def follow(self, a, b):
+        self.follows[a].add(b)
+
+    def unfollow(self, a, b):
+        self.follows[a].discard(b)
+
+    def getNewsFeed(self, user):
+        cand = list(self.tweets[user])
+        for followee in self.follows[user]:
+            cand += self.tweets[followee]
+        cand.sort(reverse=True)  # a heap of list-heads in practice
+        return [tid for _, tid in cand[:10]]`,
+  gen() {
+    const f = mkFrames();
+    let time = 0;
+    const tweets = {};
+    const follows = {};
+    const TW = hl => ({ t: "kv", label: "tweets (user → [(time, id)])", entries: Object.entries(tweets).map(([u, l]) => [`user ${u}`, l.map(([t, id]) => `(t${t}: ${id})`).join(" ")]), hl });
+    const FO = hl => ({ t: "kv", label: "follows", entries: Object.entries(follows).map(([u, s]) => [`user ${u}`, `{${[...s].join(", ")}}`]), hl });
+    f.add(`Per-user tweet lists stamped with a global clock, plus follow sets. A feed is just a merge of the newest tweets across followees.`, 4, [TW(), FO()]);
+    const post = (u, id) => {
+      (tweets[u] = tweets[u] || []).push([time++, id]);
+      f.add(`postTweet(user ${u}, ${id}) — stamped with time ${time - 1}.`, 8, [TW({ [`user ${u}`]: "p" }), FO()]);
+    };
+    post(1, 101);
+    post(2, 201);
+    follows[1] = new Set([2]);
+    f.add(`follow(1, 2) — user 1 now follows user 2.`, 12, [TW(), FO({ "user 1": "y" })]);
+    post(2, 202);
+    post(1, 102);
+    const cand = [...(tweets[1] || [])];
+    for (const fo of follows[1] || []) cand.push(...(tweets[fo] || []));
+    cand.sort((a, b) => b[0] - a[0]);
+    const feed = cand.slice(0, 10).map(([, id]) => id);
+    f.add(`getNewsFeed(1): gather user 1's tweets + followee 2's tweets, take the 10 newest by timestamp → [${feed.join(", ")}].`, 22,
+      [TW({ "user 1": "g", "user 2": "g" }), FO(), { t: "arr", label: "feed (newest first)", v: feed, hl: {} }]);
+    f.add(`With a heap over each followee's list-head this merge is O(f log f) per feed — the same pattern as Merge k Sorted Lists.`, 21, [TW(), FO()], true);
+    return f;
+  },
+};
+
+// ----------------------------------------------- Find Median from Data Stream
+VIS["find-median-from-data-stream"] = {
+  inputs: [{ name: "nums", label: "stream", type: "arr", def: "[5, 15, 1, 3, 8]", max: 10, min: 1 }],
+  code: `class MedianFinder:
+    def __init__(self):
+        self.small = []  # max-heap (lower half)
+        self.large = []  # min-heap (upper half)
+
+    def addNum(self, num):
+        heappush(self.small, -num)
+        if self.large and -self.small[0] > self.large[0]:
+            heappush(self.large, -heappop(self.small))
+        if len(self.small) > len(self.large) + 1:
+            heappush(self.large, -heappop(self.small))
+        if len(self.large) > len(self.small) + 1:
+            heappush(self.small, -heappop(self.large))
+
+    def findMedian(self):
+        if len(self.small) > len(self.large):
+            return -self.small[0]
+        if len(self.large) > len(self.small):
+            return self.large[0]
+        return (-self.small[0] + self.large[0]) / 2`,
+  gen(nums) {
+    const f = mkFrames();
+    const small = [], large = []; // small: sorted desc (front = max); large: sorted asc (front = min)
+    const S = hl => ({ t: "set", label: "small = lower half (max at front)", v: small, hl });
+    const L = hl => ({ t: "set", label: "large = upper half (min at front)", v: large, hl });
+    const median = () => small.length > large.length ? small[0] : large.length > small.length ? large[0] : (small[0] + large[0]) / 2;
+    f.add(`Split the stream into halves: a max-heap holds the lower half, a min-heap the upper. The median always lives at the two roots.`, 3, [S(), L()]);
+    for (const num of nums) {
+      small.push(num);
+      small.sort((a, b) => b - a);
+      let moved = "";
+      if (large.length && small[0] > large[0]) {
+        large.push(small.shift());
+        large.sort((a, b) => a - b);
+        moved = ` It exceeded the upper half's min, so it migrates to large.`;
+      }
+      if (small.length > large.length + 1) { large.push(small.shift()); large.sort((a, b) => a - b); moved += ` Rebalance: small was 2 bigger.`; }
+      if (large.length > small.length + 1) { small.push(large.shift()); small.sort((a, b) => b - a); moved += ` Rebalance: large was 2 bigger.`; }
+      f.add(`addNum(${num}).${moved} Median = ${median()}.`, 7, [S(small.length && (small.length >= large.length) ? { [small[0]]: "g" } : {}), L(large.length > small.length ? { [large[0]]: "g" } : (small.length === large.length && large.length ? { [large[0]]: "g" } : {}))]);
+    }
+    f.add(`Every add is O(log n); every median read is O(1) — just peek the roots.`, 20, [S(), L()], true);
+    return f;
+  },
+};
+
+// ------------------------------------------------- Implement Trie (Prefix Tree)
+VIS["implement-trie-prefix-tree"] = {
+  inputs: [],
+  code: `class Trie:
+    def __init__(self):
+        self.root = {}
+
+    def insert(self, word):
+        node = self.root
+        for c in word:
+            node = node.setdefault(c, {})
+        node["$"] = True   # end-of-word marker
+
+    def search(self, word):
+        node = self._walk(word)
+        return node is not None and "$" in node
+
+    def startsWith(self, prefix):
+        return self._walk(prefix) is not None
+
+    def _walk(self, s):
+        node = self.root
+        for c in s:
+            if c not in node:
+                return None
+            node = node[c]
+        return node`,
+  gen() {
+    const f = mkFrames();
+    const nodes = []; // prefixes present; "$"-suffixed = complete word
+    const T = hl => ({ t: "set", label: "trie nodes (● = end of word)", v: nodes.map(x => x.endsWith("$") ? x.slice(0, -1) + " ●" : x), hl });
+    const ins = word => {
+      let prefix = "";
+      for (const c of word) {
+        prefix += c;
+        if (!nodes.includes(prefix) && !nodes.includes(prefix + "$")) nodes.push(prefix);
+      }
+      const i = nodes.indexOf(prefix);
+      if (i >= 0) nodes[i] = prefix + "$"; else if (!nodes.includes(prefix + "$")) nodes.push(prefix + "$");
+    };
+    f.add(`A trie stores words one character per edge — shared prefixes share nodes, so lookups cost O(word length), never O(dictionary size).`, 3, [T()]);
+    ins("apple");
+    f.add(`insert("apple"): create the chain a → ap → app → appl → apple and mark the last node as a word end.`, 9, [T(Object.fromEntries(["a", "ap", "app", "appl", "apple ●"].map(x => [x, "p"])))]);
+    f.add(`search("apple"): walk a-p-p-l-e — node exists AND has the end marker → True.`, 13, [T({ "apple ●": "g" })]);
+    f.add(`search("app"): the node "app" exists (it's on apple's path) but has NO end marker → False. This is why the marker matters.`, 13, [T({ app: "y" })]);
+    f.add(`startsWith("app"): the walk succeeds and that's all a prefix needs → True.`, 16, [T({ app: "g" })]);
+    ins("app");
+    f.add(`insert("app"): the chain already exists — just flip the end marker on "app".`, 9, [T({ "app ●": "p" })]);
+    f.add(`search("app") now → True. Insert, search, and startsWith are all O(k) in the word's length.`, 13, [T({ "app ●": "g" })], true);
+    return f;
+  },
+};
+
+// --------------------------------- Design Add and Search Words Data Structure
+VIS["design-add-and-search-words-data-structure"] = {
+  inputs: [],
+  code: `class WordDictionary:
+    def __init__(self):
+        self.root = {}
+
+    def addWord(self, word):
+        node = self.root
+        for c in word:
+            node = node.setdefault(c, {})
+        node["$"] = True
+
+    def search(self, word):
+        def dfs(node, i):
+            if i == len(word):
+                return "$" in node
+            c = word[i]
+            if c == ".":
+                return any(dfs(child, i + 1)
+                           for k, child in node.items()
+                           if k != "$")
+            return c in node and dfs(node[c], i + 1)
+        return dfs(self.root, 0)`,
+  gen() {
+    const f = mkFrames();
+    const words = ["bad", "dad", "mad"];
+    const nodes = [];
+    for (const w of words) {
+      let p = "";
+      for (const c of w) { p += c; if (!nodes.includes(p)) nodes.push(p); }
+    }
+    const T = hl => ({ t: "set", label: "trie nodes (b/d/m branches)", v: nodes, hl });
+    f.add(`A plain trie, plus one twist in search: the wildcard '.' fans out into EVERY child via DFS instead of following one edge.`, 5, [T()]);
+    f.add(`addWord ×3: "bad", "dad", "mad" — three branches from the root, converging shape a-d below each.`, 9, [T(Object.fromEntries(nodes.map(n => [n, "p"])))]);
+    f.add(`search("pad"): the root has no 'p' child — fail immediately. O(k) exact searches are untouched by the wildcard feature.`, 19, [T()]);
+    f.add(`search("bad"): b → a → d, end marker present → True.`, 19, [T({ b: "g", ba: "g", bad: "g" })]);
+    f.add(`search(".ad"): '.' tries ALL root children — DFS into b, d, and m branches simultaneously.`, 16, [T({ b: "y", d: "y", m: "y" })]);
+    f.add(`Each branch continues with "ad": b→ad ✓ — one success is enough → True.`, 16, [T({ bad: "g", dad: "g", mad: "g" })]);
+    f.add(`search("b.."): fixed 'b', then two wildcards walk whatever exists below → "bad" matches → True. Worst case O(26^dots · k), fine for few dots.`, 19, [T({ b: "g", ba: "g", bad: "g" })], true);
+    return f;
+  },
+};
+
+// --------------------------------------------------------------- Word Search II
+VIS["word-search-ii"] = {
+  inputs: [],
+  code: `def findWords(board, words):
+    trie = {}
+    for w in words:            # build a trie of all words
+        node = trie
+        for c in w:
+            node = node.setdefault(c, {})
+        node["$"] = w
+    res = []
+    rows, cols = len(board), len(board[0])
+    def dfs(r, c, node):
+        ch = board[r][c]
+        if ch not in node:
+            return             # prune: leaves the trie
+        nxt = node[ch]
+        if "$" in nxt:
+            res.append(nxt.pop("$"))
+        board[r][c] = "#"      # mark visited
+        for dr, dc in [(1,0),(-1,0),(0,1),(0,-1)]:
+            nr, nc = r + dr, c + dc
+            if 0 <= nr < rows and 0 <= nc < cols:
+                dfs(nr, nc, nxt)
+        board[r][c] = ch       # unmark
+    for r in range(rows):
+        for c in range(cols):
+            dfs(r, c, trie)
+    return res`,
+  gen() {
+    const f = mkFrames();
+    const board = [
+      ["o", "a", "a", "n"],
+      ["e", "t", "a", "e"],
+      ["i", "h", "k", "r"],
+    ];
+    const words = ["oath", "pea", "eat", "rain"];
+    const rows = board.length, cols = board[0].length;
+    const trie = {};
+    for (const w of words) {
+      let node = trie;
+      for (const c of w) node = node[c] = node[c] || {};
+      node.$ = w;
+    }
+    const res = [];
+    const G = path => {
+      const hl = {};
+      (path || []).forEach(([r, c], i) => (hl[r + "," + c] = i === (path.length - 1) ? "p" : "w"));
+      return { t: "grid", label: "board", v: board, hl };
+    };
+    const W = hl => ({ t: "set", label: "words (trie built from these)", v: words, hl });
+    const R = () => ({ t: "set", label: "found", v: res });
+    f.add(`One board walk finds ALL words at once: DFS the grid while walking the words' trie in parallel — leave the trie, prune instantly.`, 7, [G([]), W(), R()]);
+    const seen = new Set();
+    const dfs = (r, c, node, path) => {
+      const ch = board[r][c];
+      if (!node[ch]) return;
+      const nxt = node[ch];
+      const newPath = [...path, [r, c]];
+      if (nxt.$ && !seen.has(nxt.$)) {
+        seen.add(nxt.$);
+        res.push(nxt.$);
+        const hl = {};
+        newPath.forEach(([rr, cc]) => (hl[rr + "," + cc] = "g"));
+        f.add(`The trie path spells a complete word — "${nxt.$}" found along this trail!`, 16, [{ t: "grid", label: "board", v: board, hl }, W({ [nxt.$]: "g" }), R()]);
+      } else if (newPath.length <= 2) {
+        f.add(`(${r}, ${c}) = '${ch}' continues a trie path ("${newPath.map(([rr, cc]) => board[rr][cc]).join("")}…") — keep exploring its neighbors.`, 14, [G(newPath), W(), R()]);
+      }
+      const mark = board[r][c];
+      board[r][c] = "#";
+      for (const [dr, dc] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nr = r + dr, nc = c + dc;
+        if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && board[nr][nc] !== "#") dfs(nr, nc, nxt, newPath);
+      }
+      board[r][c] = mark;
+    };
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) dfs(r, c, trie, []);
+    f.add(`Found ${res.length} word(s): ${res.join(", ")}. The trie pruned every path not leading to a word — that's the whole trick.`, 26, [G([]), W(Object.fromEntries(res.map(w => [w, "g"]))), R()], true);
+    return f;
+  },
+};
+
+// ============================ batch 10: backtracking ============================
+
+// ------------------------------------------------------------------ Subsets II
+VIS["subsets-ii"] = {
+  inputs: [{ name: "nums", label: "nums (may repeat)", type: "arr", def: "[1, 2, 2]", max: 4, min: 1 }],
+  code: `def subsetsWithDup(nums):
+    nums.sort()
+    res = []
+    def dfs(i, cur):
+        res.append(cur[:])
+        for j in range(i, len(nums)):
+            if j > i and nums[j] == nums[j - 1]:
+                continue   # skip duplicate sibling
+            cur.append(nums[j])
+            dfs(j + 1, cur)
+            cur.pop()
+    dfs(0, [])
+    return res`,
+  gen(nums) {
+    const f = mkFrames();
+    nums = [...nums].sort((a, b) => a - b);
+    const res = [];
+    const A = hl => ({ t: "arr", label: "nums (sorted)", v: nums, hl });
+    const C = cur => ({ t: "set", label: "current", v: cur.length ? cur : ["∅"] });
+    const R = hl => ({ t: "set", label: "res", v: res.map(s => `[${s.join(",")}]`), hl });
+    f.add(`Sort first so duplicates sit together. Then at each depth, equal SIBLINGS are skipped — using the second '2' where the first was declined would rebuild the same subset.`, 2, [A({}), C([]), R()]);
+    const dfs = (i, cur) => {
+      res.push([...cur]);
+      f.add(`Record [${cur.join(", ") || "∅"}].`, 5, [A({}), C(cur), R({ [`[${cur.join(",")}]`]: "g" })]);
+      for (let j = i; j < nums.length; j++) {
+        if (j > i && nums[j] === nums[j - 1]) {
+          f.add(`nums[${j}] = ${nums[j]} repeats its sibling — skipping avoids a duplicate subset.`, 8, [A({ [j]: "d", [j - 1]: "y" }), C(cur), R()]);
+          continue;
+        }
+        cur.push(nums[j]);
+        dfs(j + 1, cur);
+        cur.pop();
+      }
+    };
+    dfs(0, []);
+    f.add(`${res.length} unique subsets — duplicates never even got generated. O(n · 2ⁿ) worst case.`, 13, [A({}), C([]), R()], true);
+    return f;
+  },
+};
+
+// ------------------------------------------------------------ Combination Sum II
+VIS["combination-sum-ii"] = {
+  inputs: [
+    { name: "candidates", label: "candidates (may repeat)", type: "arr", def: "[1, 2, 2, 2, 5]", max: 6, min: 1 },
+    { name: "target", label: "target", type: "int", def: "5", min: 1, max: 12 },
+  ],
+  code: `def combinationSum2(candidates, target):
+    candidates.sort()
+    res = []
+    def dfs(i, cur, remaining):
+        if remaining == 0:
+            res.append(cur[:])
+            return
+        for j in range(i, len(candidates)):
+            if j > i and candidates[j] == candidates[j-1]:
+                continue   # skip duplicate sibling
+            if candidates[j] > remaining:
+                break      # sorted: rest is bigger too
+            cur.append(candidates[j])
+            dfs(j + 1, cur, remaining - candidates[j])
+            cur.pop()
+    dfs(0, [], target)
+    return res`,
+  gen(candidates, target) {
+    const f = mkFrames();
+    candidates = candidates.map(c => Math.max(1, c)).sort((a, b) => a - b);
+    const res = [];
+    const A = hl => ({ t: "arr", label: "candidates (sorted)", v: candidates, hl });
+    const st = (cur, rem) => [{ t: "set", label: "current", v: cur.length ? cur : ["∅"] }, { t: "vars", entries: [["remaining", rem]] }, { t: "set", label: "res", v: res.map(c => `[${c.join("+")}]`) }];
+    f.add(`Like Combination Sum, but each candidate is single-use (advance to j+1) and duplicate siblings are skipped after sorting.`, 2, [A({}), ...st([], target)]);
+    const dfs = (i, cur, rem) => {
+      if (rem === 0) {
+        res.push([...cur]);
+        f.add(`Remaining hit 0 — [${cur.join(" + ")}] = ${target}!`, 6, [A({}), ...st(cur, rem)]);
+        return;
+      }
+      for (let j = i; j < candidates.length; j++) {
+        if (j > i && candidates[j] === candidates[j - 1]) {
+          f.add(`candidates[${j}] = ${candidates[j]} repeats its sibling at this depth — skip to avoid duplicate combinations.`, 10, [A({ [j]: "d", [j - 1]: "y" }), ...st(cur, rem)]);
+          continue;
+        }
+        if (candidates[j] > rem) {
+          f.add(`${candidates[j]} > remaining ${rem}, and the array is sorted — everything after is too big. Break.`, 12, [A({ [j]: "r" }), ...st(cur, rem)]);
+          break;
+        }
+        f.add(`Take ${candidates[j]} → [${[...cur, candidates[j]].join(", ")}], remaining ${rem - candidates[j]}.`, 14, [A({ [j]: "p" }), ...st([...cur, candidates[j]], rem - candidates[j])]);
+        cur.push(candidates[j]);
+        dfs(j + 1, cur, rem - candidates[j]);
+        cur.pop();
+      }
+    };
+    dfs(0, [], target);
+    f.add(`${res.length} unique combination(s): ${res.map(c => `[${c.join("+")}]`).join(" ") || "none"}.`, 17, [A({}), ...st([], 0)], true);
+    return f;
+  },
+};
+
+// ------------------------------------------------------------------ Word Search
+VIS["word-search"] = {
+  inputs: [{ name: "word", label: "word", type: "str", def: "ABCCED", max: 8 }],
+  code: `def exist(board, word):
+    rows, cols = len(board), len(board[0])
+    def dfs(r, c, i):
+        if i == len(word):
+            return True
+        if (r < 0 or r >= rows or c < 0 or c >= cols
+                or board[r][c] != word[i]):
+            return False
+        board[r][c] = "#"    # mark visited
+        found = (dfs(r+1, c, i+1) or dfs(r-1, c, i+1) or
+                 dfs(r, c+1, i+1) or dfs(r, c-1, i+1))
+        board[r][c] = word[i]  # unmark
+        return found
+    for r in range(rows):
+        for c in range(cols):
+            if dfs(r, c, 0):
+                return True
+    return False`,
+  gen(word) {
+    const f = mkFrames();
+    word = word.toUpperCase();
+    const board = [
+      ["A", "B", "C", "E"],
+      ["S", "F", "C", "S"],
+      ["A", "D", "E", "E"],
+    ];
+    const rows = board.length, cols = board[0].length;
+    const G = (path, extra) => {
+      const hl = {};
+      (path || []).forEach(([r, c], i) => (hl[r + "," + c] = i === path.length - 1 ? "p" : "w"));
+      Object.assign(hl, extra || {});
+      return { t: "grid", label: "board", v: board, hl };
+    };
+    const W = i => ({ t: "arr", label: "word", v: [...word], hl: Object.fromEntries([...word].map((_, x) => [x, x < i ? "g" : undefined]).filter(([, c]) => c)), ch: true });
+    f.add(`DFS from every cell: follow the word one letter at a time, marking cells in-use so a path can't reuse them, un-marking on backtrack.`, 3, [G([]), W(0)]);
+    let frames = 0;
+    const dfs = (r, c, i, path) => {
+      if (i === word.length) return true;
+      if (r < 0 || r >= rows || c < 0 || c >= cols || board[r][c] !== word[i]) return false;
+      const newPath = [...path, [r, c]];
+      if (frames++ < 18) {
+        f.add(`(${r}, ${c}) = '${board[r][c]}' matches word[${i}] — extend the path (${i + 1}/${word.length} letters).`, 9, [G(newPath), W(i + 1)]);
+      }
+      const ch = board[r][c];
+      board[r][c] = "#";
+      const found = dfs(r + 1, c, i + 1, newPath) || dfs(r - 1, c, i + 1, newPath) || dfs(r, c + 1, i + 1, newPath) || dfs(r, c - 1, i + 1, newPath);
+      board[r][c] = ch;
+      if (found && i === word.length - 1) {
+        const hl = {};
+        newPath.forEach(([rr, cc]) => (hl[rr + "," + cc] = "g"));
+        f.add(`All ${word.length} letters traced without reusing a cell — "${word}" exists! Return True.`, 4, [{ t: "grid", label: "board", v: board, hl }, W(word.length)], true);
+      }
+      return found;
+    };
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        if (dfs(r, c, 0, [])) return f;
+      }
+    }
+    f.add(`No starting cell led to a full trace — "${word}" is not on the board. Return False.`, 18, [G([]), W(0)], true);
+    return f;
+  },
+};
+
+// -------------------------------------------------------- Palindrome Partitioning
+VIS["palindrome-partitioning"] = {
+  inputs: [{ name: "s", label: "s", type: "str", def: "aab", max: 6 }],
+  code: `def partition(s):
+    res = []
+    def dfs(i, cur):
+        if i == len(s):
+            res.append(cur[:])
+            return
+        for j in range(i, len(s)):
+            piece = s[i:j+1]
+            if piece == piece[::-1]:
+                cur.append(piece)
+                dfs(j + 1, cur)
+                cur.pop()
+    dfs(0, [])
+    return res`,
+  gen(s) {
+    const f = mkFrames();
+    const res = [];
+    const S = (i, j, cls) => {
+      const hl = {};
+      if (j !== undefined) for (let x = i; x <= j; x++) hl[x] = cls;
+      return { t: "arr", label: "s", v: [...s], hl, ch: true };
+    };
+    const C = cur => ({ t: "set", label: "current pieces", v: cur.length ? cur : ["∅"] });
+    const R = hl => ({ t: "set", label: "res", v: res.map(p => `[${p.join("|")}]`), hl });
+    f.add(`At each position, try every prefix that is a palindrome, cut there, and recurse on the rest.`, 3, [S(0), C([]), R()]);
+    const isPal = str => str === [...str].reverse().join("");
+    const dfs = (i, cur) => {
+      if (i === s.length) {
+        res.push([...cur]);
+        f.add(`Reached the end — [${cur.join(" | ")}] is a full palindromic partition!`, 5, [S(0), C(cur), R({ [`[${cur.join("|")}]`]: "g" })]);
+        return;
+      }
+      for (let j = i; j < s.length; j++) {
+        const piece = s.slice(i, j + 1);
+        if (isPal(piece)) {
+          f.add(`"${piece}" (s[${i}..${j}]) is a palindrome — cut here and recurse on "${s.slice(j + 1) || "ε"}".`, 10, [S(i, j, "g"), C([...cur, piece]), R()]);
+          cur.push(piece);
+          dfs(j + 1, cur);
+          cur.pop();
+        } else {
+          f.add(`"${piece}" is not a palindrome — this cut is not allowed.`, 9, [S(i, j, "r"), C(cur), R()]);
+        }
+      }
+    };
+    dfs(0, []);
+    f.add(`${res.length} palindromic partition(s) found.`, 14, [S(0), C([]), R()], true);
+    return f;
+  },
+};
+
+// ----------------------------------- Letter Combinations of a Phone Number
+VIS["letter-combinations-of-a-phone-number"] = {
+  inputs: [{ name: "digits", label: "digits (2-9)", type: "str", def: "23", max: 3 }],
+  code: `def letterCombinations(digits):
+    if not digits:
+        return []
+    keys = {"2": "abc", "3": "def", "4": "ghi",
+            "5": "jkl", "6": "mno", "7": "pqrs",
+            "8": "tuv", "9": "wxyz"}
+    res = []
+    def dfs(i, cur):
+        if i == len(digits):
+            res.append(cur)
+            return
+        for c in keys[digits[i]]:
+            dfs(i + 1, cur + c)
+    dfs(0, "")
+    return res`,
+  gen(digits) {
+    const f = mkFrames();
+    const keys = { 2: "abc", 3: "def", 4: "ghi", 5: "jkl", 6: "mno", 7: "pqrs", 8: "tuv", 9: "wxyz" };
+    digits = [...digits].filter(d => keys[d]).join("");
+    const res = [];
+    const D = i => ({ t: "arr", label: "digits", v: [...digits], hl: i < digits.length ? { [i]: "p" } : {}, ch: true });
+    const R = hl => ({ t: "set", label: "res", v: res, hl });
+    if (!digits) {
+      f.add(`No valid digits (2-9) — return [].`, 3, [R()], true);
+      return f;
+    }
+    f.add(`Each digit maps to 3-4 keypad letters: ${[...digits].map(d => `${d}→"${keys[d]}"`).join(", ")}. DFS picks one letter per digit.`, 7, [D(0), R()]);
+    const dfs = (i, cur) => {
+      if (i === digits.length) {
+        res.push(cur);
+        f.add(`"${cur}" is complete — one letter chosen per digit.`, 11, [D(i), R({ [cur]: "g" })]);
+        return;
+      }
+      for (const c of keys[digits[i]]) {
+        f.add(`Digit ${digits[i]}: append '${c}' → "${cur + c}".`, 13, [D(i), R()]);
+        dfs(i + 1, cur + c);
+      }
+    };
+    dfs(0, "");
+    f.add(`All ${res.length} combinations generated (${[...digits].map(d => keys[d].length).join("×")} choices).`, 15, [D(digits.length), R()], true);
+    return f;
+  },
+};
+
+// --------------------------------------------------------------------- N-Queens
+VIS["n-queens"] = {
+  inputs: [],
+  code: `def solveNQueens(n):
+    res = []
+    cols, diag1, diag2 = set(), set(), set()
+    board = [["."] * n for _ in range(n)]
+    def dfs(r):
+        if r == n:
+            res.append(["".join(row) for row in board])
+            return
+        for c in range(n):
+            if (c in cols or r+c in diag1
+                    or r-c in diag2):
+                continue    # attacked — skip
+            cols.add(c); diag1.add(r+c); diag2.add(r-c)
+            board[r][c] = "Q"
+            dfs(r + 1)
+            board[r][c] = "."
+            cols.discard(c); diag1.discard(r+c); diag2.discard(r-c)
+    dfs(0)
+    return res`,
+  gen() {
+    const f = mkFrames();
+    const n = 4;
+    const board = Array.from({ length: n }, () => new Array(n).fill("·"));
+    const cols = new Set(), d1 = new Set(), d2 = new Set();
+    const res = [];
+    const G = extra => {
+      const hl = {};
+      for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (board[r][c] === "Q") hl[r + "," + c] = "p";
+      Object.assign(hl, extra || {});
+      return { t: "grid", label: "board (4×4)", v: board, hl };
+    };
+    const V = () => ({ t: "vars", entries: [["solutions", res.length]] });
+    f.add(`Place one queen per row. Three sets — used columns and both diagonal directions — make each safety check O(1).`, 3, [G(), V()]);
+    const dfs = r => {
+      if (r === n) {
+        res.push(board.map(row => row.join("")));
+        f.add(`All ${n} rows filled — solution #${res.length} found!`, 7, [G(Object.fromEntries([...Array(n).keys()].map(rr => {
+          const cc = board[rr].indexOf("Q");
+          return [rr + "," + cc, "g"];
+        }))), V()]);
+        return;
+      }
+      for (let c = 0; c < n; c++) {
+        if (cols.has(c) || d1.has(r + c) || d2.has(r - c)) continue;
+        cols.add(c); d1.add(r + c); d2.add(r - c);
+        board[r][c] = "Q";
+        f.add(`Row ${r}: column ${c} and both its diagonals are free — place a queen.`, 14, [G({ [r + "," + c]: "y" }), V()]);
+        dfs(r + 1);
+        board[r][c] = "·";
+        cols.delete(c); d1.delete(r + c); d2.delete(r - c);
+        if (r < n - 1) f.add(`Backtrack: remove the queen from (${r}, ${c}) and try the next column.`, 16, [G({ [r + "," + c]: "r" }), V()]);
+      }
+    };
+    dfs(0);
+    f.add(`${res.length} distinct solutions for n = ${n}. The diagonal sets (r+c and r−c) are the classic trick. O(n!).`, 19, [G(), V()], true);
+    return f;
+  },
+};
+
+// ============================ batch 11: graphs ============================
+
+// ------------------------------------------------------------------ Clone Graph
+VIS["clone-graph"] = {
+  inputs: [],
+  code: `def cloneGraph(node):
+    old_to_new = {}
+    def dfs(node):
+        if node in old_to_new:
+            return old_to_new[node]
+        copy = Node(node.val)
+        old_to_new[node] = copy
+        for nei in node.neighbors:
+            copy.neighbors.append(dfs(nei))
+        return copy
+    return dfs(node) if node else None`,
+  gen() {
+    const f = mkFrames();
+    const adj = { 1: [2, 4], 2: [1, 3], 3: [2, 4], 4: [1, 3] };
+    const cloned = [];
+    const A = hl => ({ t: "kv", label: "graph (node → neighbors)", entries: Object.entries(adj).map(([k, v]) => [k, `[${v.join(", ")}]`]), hl });
+    const M = hl => ({ t: "kv", label: "old_to_new", entries: cloned.map(n => [`node ${n}`, `clone ${n}'`]), hl });
+    f.add(`The graph has cycles (1-2-3-4-1), so naive copying would recurse forever. The old→new map both breaks cycles and reuses clones.`, 2, [A({}), M()]);
+    const dfs = n => {
+      if (cloned.includes(n)) {
+        f.add(`Node ${n} is already in the map — return its EXISTING clone instead of making another (this is what breaks the cycle).`, 5, [A({ [n]: "y" }), M({ [`node ${n}`]: "y" })]);
+        return;
+      }
+      cloned.push(n);
+      f.add(`First visit to node ${n}: create clone ${n}', record it, then recurse into its neighbors [${adj[n].join(", ")}].`, 7, [A({ [n]: "p" }), M({ [`node ${n}`]: "p" })]);
+      for (const nei of adj[n]) dfs(nei);
+    };
+    dfs(1);
+    f.add(`All 4 nodes cloned exactly once, with every neighbor pointer translated through the map. O(V + E).`, 11, [A({}), M(Object.fromEntries(cloned.map(n => [`node ${n}`, "g"])))], true);
+    return f;
+  },
+};
+
+// -------------------------------------------------- Pacific Atlantic Water Flow
+VIS["pacific-atlantic-water-flow"] = {
+  inputs: [],
+  code: `def pacificAtlantic(heights):
+    rows, cols = len(heights), len(heights[0])
+    pac, atl = set(), set()
+    def dfs(r, c, seen, prev):
+        if (r < 0 or r >= rows or c < 0 or c >= cols
+                or (r, c) in seen
+                or heights[r][c] < prev):
+            return
+        seen.add((r, c))
+        for dr, dc in [(1,0),(-1,0),(0,1),(0,-1)]:
+            dfs(r + dr, c + dc, seen, heights[r][c])
+    for c in range(cols):
+        dfs(0, c, pac, 0)          # Pacific: top edge
+        dfs(rows - 1, c, atl, 0)   # Atlantic: bottom
+    for r in range(rows):
+        dfs(r, 0, pac, 0)          # Pacific: left edge
+        dfs(r, cols - 1, atl, 0)   # Atlantic: right
+    return [[r, c] for r in range(rows)
+            for c in range(cols)
+            if (r, c) in pac and (r, c) in atl]`,
+  gen() {
+    const f = mkFrames();
+    const heights = [
+      [1, 2, 2, 3, 5],
+      [3, 2, 3, 4, 4],
+      [2, 4, 5, 3, 1],
+      [6, 7, 1, 4, 5],
+      [5, 1, 1, 2, 4],
+    ];
+    const rows = heights.length, cols = heights[0].length;
+    const flood = starts => {
+      const seen = new Set();
+      const dfs = (r, c, prev) => {
+        if (r < 0 || r >= rows || c < 0 || c >= cols || seen.has(r + "," + c) || heights[r][c] < prev) return;
+        seen.add(r + "," + c);
+        dfs(r + 1, c, heights[r][c]); dfs(r - 1, c, heights[r][c]);
+        dfs(r, c + 1, heights[r][c]); dfs(r, c - 1, heights[r][c]);
+      };
+      starts.forEach(([r, c]) => dfs(r, c, 0));
+      return seen;
+    };
+    const G = (hlSet, cls, label, extra) => {
+      const hl = {};
+      hlSet.forEach(k => (hl[k] = cls));
+      Object.assign(hl, extra || {});
+      return { t: "grid", label, v: heights, hl };
+    };
+    f.add(`Simulating water downhill from every cell is O((mn)²). Flip it: climb UPHILL from each ocean's border — cells reached by both oceans are the answer.`, 4,
+      [G(new Set(), "p", "heights")]);
+    const pacStarts = [];
+    for (let c = 0; c < cols; c++) pacStarts.push([0, c]);
+    for (let r = 0; r < rows; r++) pacStarts.push([r, 0]);
+    f.add(`Pacific touches the top and left edges — start uphill DFS from all of them.`, 14,
+      [G(new Set(pacStarts.map(([r, c]) => r + "," + c)), "p", "Pacific border cells")]);
+    const pac = flood(pacStarts);
+    f.add(`Everything the Pacific's water can be traced back FROM (moving to equal-or-higher neighbors): ${pac.size} cells.`, 15, [G(pac, "p", "reaches the Pacific")]);
+    const atlStarts = [];
+    for (let c = 0; c < cols; c++) atlStarts.push([rows - 1, c]);
+    for (let r = 0; r < rows; r++) atlStarts.push([r, cols - 1]);
+    const atl = flood(atlStarts);
+    f.add(`Same uphill flood from the Atlantic's bottom and right edges: ${atl.size} cells.`, 18, [G(atl, "y", "reaches the Atlantic")]);
+    const both = new Set([...pac].filter(k => atl.has(k)));
+    f.add(`The intersection — cells whose water can reach BOTH oceans: ${both.size} cells. Two floods → O(m·n).`, 20, [G(both, "g", "reaches both oceans")], true);
+    return f;
+  },
+};
+
+// ------------------------------------------------------------ Surrounded Regions
+VIS["surrounded-regions"] = {
+  inputs: [],
+  code: `def solve(board):
+    rows, cols = len(board), len(board[0])
+    def dfs(r, c):   # protect border-connected O's
+        if (r < 0 or r >= rows or c < 0 or c >= cols
+                or board[r][c] != "O"):
+            return
+        board[r][c] = "S"   # safe
+        dfs(r+1, c); dfs(r-1, c)
+        dfs(r, c+1); dfs(r, c-1)
+    for r in range(rows):
+        dfs(r, 0); dfs(r, cols - 1)
+    for c in range(cols):
+        dfs(0, c); dfs(rows - 1, c)
+    for r in range(rows):
+        for c in range(cols):
+            if board[r][c] == "O":
+                board[r][c] = "X"   # captured
+            elif board[r][c] == "S":
+                board[r][c] = "O"   # restored`,
+  gen() {
+    const f = mkFrames();
+    const board = [
+      ["X", "X", "X", "X"],
+      ["X", "O", "O", "X"],
+      ["X", "X", "O", "X"],
+      ["X", "O", "X", "X"],
+    ];
+    const rows = board.length, cols = board[0].length;
+    const G = extra => {
+      const hl = {};
+      for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+        if (board[r][c] === "O") hl[r + "," + c] = "y";
+        if (board[r][c] === "S") hl[r + "," + c] = "g";
+      }
+      Object.assign(hl, extra || {});
+      return { t: "grid", label: "board (yellow = O, green = safe)", v: board.map(row => row.map(x => (x === "S" ? "O" : x))), hl };
+    };
+    f.add(`Think in reverse: an 'O' region survives ONLY if it touches the border. Protect those first; everything else gets captured.`, 3, [G()]);
+    const dfs = (r, c) => {
+      if (r < 0 || r >= rows || c < 0 || c >= cols || board[r][c] !== "O") return;
+      board[r][c] = "S";
+      f.add(`(${r}, ${c}) connects to the border — mark it safe.`, 7, [G({ [r + "," + c]: "g" })]);
+      dfs(r + 1, c); dfs(r - 1, c); dfs(r, c + 1); dfs(r, c - 1);
+    };
+    for (let r = 0; r < rows; r++) { dfs(r, 0); dfs(r, cols - 1); }
+    for (let c = 0; c < cols; c++) { dfs(0, c); dfs(rows - 1, c); }
+    f.add(`Border pass done. Every remaining 'O' is fully enclosed — flip them to 'X', restore the safe cells to 'O'.`, 14, [G()]);
+    const flipped = [];
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+      if (board[r][c] === "O") { board[r][c] = "X"; flipped.push(r + "," + c); }
+      else if (board[r][c] === "S") board[r][c] = "O";
+    }
+    f.add(`Captured ${flipped.length} enclosed cell(s); the border-connected region at the bottom survived. O(m·n).`, 19,
+      [{ t: "grid", label: "result", v: board, hl: { ...Object.fromEntries(flipped.map(k => [k, "r"])), ...Object.fromEntries([].concat(...board.map((row, r) => row.map((x, c) => (x === "O" ? [r + "," + c, "g"] : null)).filter(Boolean)))) } }], true);
+    return f;
+  },
+};
+
+// ------------------------------------------------------------- Walls and Gates
+VIS["walls-and-gates"] = {
+  inputs: [],
+  code: `def wallsAndGates(rooms):
+    rows, cols = len(rooms), len(rooms[0])
+    queue = deque()
+    for r in range(rows):
+        for c in range(cols):
+            if rooms[r][c] == 0:       # gates
+                queue.append((r, c))
+    dist = 0
+    while queue:
+        dist += 1
+        for _ in range(len(queue)):
+            r, c = queue.popleft()
+            for dr, dc in [(1,0),(-1,0),(0,1),(0,-1)]:
+                nr, nc = r + dr, c + dc
+                if (0 <= nr < rows and 0 <= nc < cols
+                        and rooms[nr][nc] == INF):
+                    rooms[nr][nc] = dist
+                    queue.append((nr, nc))`,
+  gen() {
+    const f = mkFrames();
+    const INF = "∞";
+    const rooms = [
+      [INF, -1, 0, INF],
+      [INF, INF, INF, -1],
+      [INF, -1, INF, -1],
+      [0, -1, INF, INF],
+    ];
+    const rows = rooms.length, cols = rooms[0].length;
+    const G = extra => {
+      const hl = {};
+      for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+        if (rooms[r][c] === -1) hl[r + "," + c] = "d";
+        else if (rooms[r][c] === 0) hl[r + "," + c] = "p";
+      }
+      Object.assign(hl, extra || {});
+      return { t: "grid", label: "rooms (dim = wall, blue = gate)", v: rooms.map(row => row.map(x => (x === -1 ? "▦" : x))), hl };
+    };
+    let queue = [];
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) if (rooms[r][c] === 0) queue.push([r, c]);
+    f.add(`One BFS from ALL gates at once (multi-source): the first wave to reach a room is, by BFS's nature, the nearest gate's.`, 7, [G()]);
+    let dist = 0;
+    while (queue.length) {
+      dist++;
+      const next = [];
+      const filled = [];
+      for (const [r, c] of queue) {
+        for (const [dr, dc] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const nr = r + dr, nc = c + dc;
+          if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && rooms[nr][nc] === INF) {
+            rooms[nr][nc] = dist;
+            next.push([nr, nc]);
+            filled.push(nr + "," + nc);
+          }
+        }
+      }
+      if (filled.length) {
+        f.add(`Wave ${dist}: ${filled.length} room(s) get distance ${dist} — their nearest gate is ${dist} step(s) away.`, 17,
+          [G(Object.fromEntries(filled.map(k => [k, "g"])))]);
+      }
+      queue = next;
+    }
+    f.add(`Every reachable room is filled with its distance to the nearest gate — one pass, O(m·n).`, 18, [G()], true);
+    return f;
+  },
+};
+
+// ---------------------------------------------------------- Course Schedule II
+VIS["course-schedule-ii"] = {
+  inputs: [],
+  code: `def findOrder(numCourses, prerequisites):
+    adj = defaultdict(list)
+    indeg = [0] * numCourses
+    for course, pre in prerequisites:
+        adj[pre].append(course)
+        indeg[course] += 1
+    queue = deque(i for i in range(numCourses)
+                  if indeg[i] == 0)
+    order = []
+    while queue:
+        c = queue.popleft()
+        order.append(c)
+        for nxt in adj[c]:
+            indeg[nxt] -= 1
+            if indeg[nxt] == 0:
+                queue.append(nxt)
+    return order if len(order) == numCourses else []`,
+  gen() {
+    const f = mkFrames();
+    const numCourses = 4;
+    const prereqs = [[1, 0], [2, 0], [3, 1], [3, 2]];
+    const adj = {};
+    const indeg = new Array(numCourses).fill(0);
+    for (const [course, pre] of prereqs) {
+      (adj[pre] = adj[pre] || []).push(course);
+      indeg[course]++;
+    }
+    const order = [];
+    let queue = indeg.map((d, i) => (d === 0 ? i : -1)).filter(i => i >= 0);
+    const C = () => [
+      { t: "kv", label: "prerequisite → unlocks", entries: Object.entries(adj).map(([k, v]) => [k, `[${v.join(", ")}]`]) },
+      { t: "arr", label: "indegree", v: indeg, hl: Object.fromEntries(indeg.map((d, i) => [i, d === 0 && !order.includes(i) ? "g" : undefined]).filter(([, c]) => c)) },
+      { t: "arr", label: "order", v: order.length ? order : ["·"], hl: {} },
+    ];
+    f.add(`Same as Course Schedule, but this time the ORDER of taking courses IS the answer — record each course as its indegree hits 0.`, 7, C());
+    while (queue.length) {
+      const c = queue.shift();
+      order.push(c);
+      const released = [];
+      for (const nxt of adj[c] || []) {
+        indeg[nxt]--;
+        if (indeg[nxt] === 0) { queue.push(nxt); released.push(nxt); }
+      }
+      f.add(`Take course ${c} → order so far [${order.join(", ")}].${released.length ? ` Course(s) ${released.join(", ")} now have no unmet prerequisites.` : ""}`, 12, C());
+    }
+    f.add(order.length === numCourses
+      ? `Valid order: [${order.join(", ")}] — a topological sort of the prerequisite DAG. O(V + E).`
+      : `Only ${order.length}/${numCourses} scheduled — a cycle blocks the rest. Return [].`, 17, C(), true);
+    return f;
+  },
+};
+
+// ------------------------------------------------------- Redundant Connection
+VIS["redundant-connection"] = {
+  inputs: [],
+  code: `def findRedundantConnection(edges):
+    parent = list(range(len(edges) + 1))
+    def find(x):
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]  # compress
+            x = parent[x]
+        return x
+    for a, b in edges:
+        ra, rb = find(a), find(b)
+        if ra == rb:
+            return [a, b]  # already connected!
+        parent[ra] = rb
+    return []`,
+  gen() {
+    const f = mkFrames();
+    const edges = [[1, 2], [2, 3], [3, 4], [1, 4], [1, 5]];
+    const parent = [...Array(edges.length + 2).keys()];
+    const find = x => { while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; } return x; };
+    const E = hl => ({ t: "arr", label: "edges (in given order)", v: edges.map(([a, b]) => `${a}-${b}`), hl });
+    const P = hl => ({ t: "arr", label: "parent (Union-Find, index = node)", v: parent.slice(1), hl });
+    f.add(`A tree plus one extra edge — Union-Find processes edges in order; the first edge whose endpoints are ALREADY connected closes the cycle.`, 2, [E({}), P({})]);
+    for (let i = 0; i < edges.length; i++) {
+      const [a, b] = edges[i];
+      const ra = find(a), rb = find(b);
+      if (ra === rb) {
+        f.add(`Edge ${a}-${b}: find(${a}) = find(${b}) = ${ra} — they're already in the same component, so this edge creates the cycle. Return [${a}, ${b}].`, 11,
+          [E({ [i]: "r" }), P({ [ra - 1]: "r" })], true);
+        return f;
+      }
+      parent[ra] = rb;
+      f.add(`Edge ${a}-${b}: roots ${ra} and ${rb} differ — union them (parent[${ra}] = ${rb}).`, 12, [E({ [i]: "g" }), P({ [ra - 1]: "y" })]);
+    }
+    f.add(`No cycle found.`, 13, [E({}), P({})], true);
+    return f;
+  },
+};
+
+// --------------------------- Number of Connected Components in an Undirected Graph
+VIS["number-of-connected-components-in-an-undirected-graph"] = {
+  inputs: [],
+  code: `def countComponents(n, edges):
+    parent = list(range(n))
+    count = n
+    def find(x):
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+    for a, b in edges:
+        ra, rb = find(a), find(b)
+        if ra != rb:
+            parent[ra] = rb
+            count -= 1
+    return count`,
+  gen() {
+    const f = mkFrames();
+    const n = 5;
+    const edges = [[0, 1], [1, 2], [3, 4]];
+    const parent = [...Array(n).keys()];
+    let count = n;
+    const find = x => { while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; } return x; };
+    const E = hl => ({ t: "arr", label: "edges", v: edges.map(([a, b]) => `${a}-${b}`), hl });
+    const P = hl => ({ t: "arr", label: "parent (index = node)", v: parent, hl });
+    const V = () => ({ t: "vars", entries: [["components", count]] });
+    f.add(`Start with ${n} isolated nodes = ${n} components. Every union that actually merges two different roots reduces the count by one.`, 3, [E({}), P({}), V()]);
+    edges.forEach(([a, b], i) => {
+      const ra = find(a), rb = find(b);
+      if (ra !== rb) {
+        parent[ra] = rb;
+        count--;
+        f.add(`Edge ${a}-${b}: different roots (${ra} vs ${rb}) — merge them. Components: ${count}.`, 12, [E({ [i]: "g" }), P({ [ra]: "y" }), V()]);
+      } else {
+        f.add(`Edge ${a}-${b}: same root ${ra} — already connected, count unchanged.`, 10, [E({ [i]: "d" }), P({}), V()]);
+      }
+    });
+    f.add(`${count} connected components remain: {0,1,2} and {3,4}. O(E · α(n)) — effectively linear.`, 14, [E({}), P({}), V()], true);
+    return f;
+  },
+};
+
+// ------------------------------------------------------------ Graph Valid Tree
+VIS["graph-valid-tree"] = {
+  inputs: [],
+  code: `def validTree(n, edges):
+    if len(edges) != n - 1:
+        return False       # a tree has exactly n-1 edges
+    parent = list(range(n))
+    def find(x):
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+    for a, b in edges:
+        ra, rb = find(a), find(b)
+        if ra == rb:
+            return False   # cycle
+        parent[ra] = rb
+    return True  # n-1 edges + acyclic = connected tree`,
+  gen() {
+    const f = mkFrames();
+    const n = 5;
+    const edges = [[0, 1], [0, 2], [0, 3], [1, 4]];
+    const parent = [...Array(n).keys()];
+    const find = x => { while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; } return x; };
+    const E = hl => ({ t: "arr", label: "edges", v: edges.map(([a, b]) => `${a}-${b}`), hl });
+    const P = hl => ({ t: "arr", label: "parent (index = node)", v: parent, hl });
+    f.add(`A tree needs BOTH: exactly n−1 edges (here ${edges.length} = ${n}−1 ✓) and no cycle. Given the count, acyclic also forces connected.`, 2, [E({}), P({})]);
+    for (let i = 0; i < edges.length; i++) {
+      const [a, b] = edges[i];
+      const ra = find(a), rb = find(b);
+      if (ra === rb) {
+        f.add(`Edge ${a}-${b} joins two already-connected nodes — a cycle. Not a tree.`, 13, [E({ [i]: "r" }), P({})], true);
+        return f;
+      }
+      parent[ra] = rb;
+      f.add(`Edge ${a}-${b}: distinct roots, union them.`, 14, [E({ [i]: "g" }), P({ [ra]: "y" })]);
+    }
+    f.add(`${edges.length} unions, zero cycles — with exactly n−1 edges that guarantees one connected component: a valid tree. Return True.`, 15, [E({}), P({})], true);
+    return f;
+  },
+};
+
+// ------------------------------------------------------------------ Word Ladder
+VIS["word-ladder"] = {
+  inputs: [],
+  code: `def ladderLength(beginWord, endWord, wordList):
+    words = set(wordList)
+    if endWord not in words:
+        return 0
+    queue = deque([beginWord])
+    steps = 1
+    while queue:
+        for _ in range(len(queue)):
+            w = queue.popleft()
+            if w == endWord:
+                return steps
+            for i in range(len(w)):
+                for c in "abcdefghijklmnopqrstuvwxyz":
+                    nxt = w[:i] + c + w[i+1:]
+                    if nxt in words:
+                        words.remove(nxt)
+                        queue.append(nxt)
+        steps += 1
+    return 0`,
+  gen() {
+    const f = mkFrames();
+    const beginWord = "hit", endWord = "cog";
+    const words = new Set(["hot", "dot", "dog", "lot", "log", "cog"]);
+    const W = hl => ({ t: "set", label: "unvisited words", v: [...words], hl });
+    let queue = [beginWord];
+    let steps = 1;
+    const Q = hl => ({ t: "set", label: `BFS frontier (step ${steps})`, v: queue, hl });
+    const V = () => ({ t: "vars", entries: [["steps", steps], ["target", endWord]] });
+    f.add(`Words are graph nodes; an edge = one letter of difference. BFS finds the SHORTEST chain — each frontier is one transformation deeper.`, 5, [Q({ [beginWord]: "p" }), W(), V()]);
+    let guard = 0;
+    while (queue.length && guard++ < 10) {
+      if (queue.includes(endWord)) {
+        f.add(`"${endWord}" is in the frontier — reached in ${steps} steps: the shortest ladder has ${steps} words. Return ${steps}.`, 11, [Q({ [endWord]: "g" }), W(), V()], true);
+        return f;
+      }
+      const next = [];
+      const found = [];
+      for (const w of queue) {
+        for (let i = 0; i < w.length; i++) {
+          for (let ci = 0; ci < 26; ci++) {
+            const nxt = w.slice(0, i) + String.fromCharCode(97 + ci) + w.slice(i + 1);
+            if (words.has(nxt)) {
+              words.delete(nxt);
+              next.push(nxt);
+              found.push(nxt);
+            }
+          }
+        }
+      }
+      f.add(`Frontier [${queue.join(", ")}] expands: one-letter neighbors still unvisited are [${found.join(", ") || "none"}]. Each is removed from the pool (first visit = shortest).`, 17,
+        [Q(Object.fromEntries(queue.map(w => [w, "p"]))), W(Object.fromEntries(found.map(w => [w, "y"]))), V()]);
+      queue = next;
+      steps++;
+    }
+    f.add(`Frontier emptied before reaching "${endWord}" — no ladder exists. Return 0.`, 20, [Q({}), W(), V()], true);
+    return f;
+  },
+};
+
+// ============================ batch 12: advanced graphs ============================
+
+// ------------------------------------------------- Min Cost to Connect All Points
+VIS["min-cost-to-connect-all-points"] = {
+  inputs: [],
+  code: `def minCostConnectPoints(points):
+    n = len(points)
+    dist = [float("inf")] * n
+    dist[0] = 0
+    in_mst = [False] * n
+    total = 0
+    for _ in range(n):
+        u = min((d, i) for i, d in enumerate(dist)
+                if not in_mst[i])[1]
+        in_mst[u] = True
+        total += dist[u]
+        for v in range(n):
+            if not in_mst[v]:
+                d = (abs(points[u][0] - points[v][0])
+                   + abs(points[u][1] - points[v][1]))
+                dist[v] = min(dist[v], d)
+    return total`,
+  gen() {
+    const f = mkFrames();
+    const points = [[0, 0], [2, 2], [3, 10], [5, 2], [7, 0]];
+    const n = points.length;
+    const dist = new Array(n).fill(Infinity);
+    dist[0] = 0;
+    const inMst = new Array(n).fill(false);
+    let total = 0;
+    const md = (a, b) => Math.abs(points[a][0] - points[b][0]) + Math.abs(points[a][1] - points[b][1]);
+    const P = hl => ({ t: "arr", label: "points (x, y)", v: points.map(([x, y]) => `(${x},${y})`), hl });
+    const D = hl => ({ t: "arr", label: "dist (cheapest edge into the MST)", v: dist.map(d => (d === Infinity ? "∞" : d)), hl });
+    const V = () => ({ t: "vars", entries: [["total cost", total]] });
+    f.add(`Prim's MST: grow a tree from point 0, each round pulling in the closest point NOT yet in the tree via its cheapest connecting edge.`, 3, [P({}), D({ 0: "p" }), V()]);
+    for (let k = 0; k < n; k++) {
+      let u = -1, best = Infinity;
+      for (let i = 0; i < n; i++) if (!inMst[i] && dist[i] < best) { best = dist[i]; u = i; }
+      inMst[u] = true;
+      total += dist[u];
+      f.add(`Cheapest reachable point is ${u} = (${points[u].join(",")}) at cost ${dist[u]} — add it to the tree (total ${total}).`, 11, [P({ [u]: "g" }), D({ [u]: "g" }), V()]);
+      const updated = [];
+      for (let v = 0; v < n; v++) {
+        if (!inMst[v]) {
+          const d = md(u, v);
+          if (d < dist[v]) { dist[v] = d; updated.push(v); }
+        }
+      }
+      if (updated.length) f.add(`Point ${u} offers cheaper connections to point(s) ${updated.join(", ")} — relax their dist.`, 16, [P({ [u]: "p" }), D(Object.fromEntries(updated.map(v => [v, "y"]))), V()]);
+    }
+    f.add(`All points connected for a minimum total cost of ${total}. O(n²) Prim's — ideal for dense point graphs.`, 17, [P({}), D({}), V()], true);
+    return f;
+  },
+};
+
+// ------------------------------------------------------------ Network Delay Time
+VIS["network-delay-time"] = {
+  inputs: [],
+  code: `def networkDelayTime(times, n, k):
+    adj = defaultdict(list)
+    for u, v, w in times:
+        adj[u].append((v, w))
+    dist = {}
+    heap = [(0, k)]        # (time so far, node)
+    while heap:
+        t, u = heappop(heap)
+        if u in dist:
+            continue       # already finalized
+        dist[u] = t
+        for v, w in adj[u]:
+            if v not in dist:
+                heappush(heap, (t + w, v))
+    return max(dist.values()) if len(dist) == n else -1`,
+  gen() {
+    const f = mkFrames();
+    const times = [[1, 2, 1], [1, 3, 4], [2, 3, 1], [3, 4, 2]];
+    const n = 4, k = 1;
+    const adj = {};
+    for (const [u, v, w] of times) (adj[u] = adj[u] || []).push([v, w]);
+    const dist = {};
+    let heap = [[0, k]];
+    const A = () => ({ t: "kv", label: "edges (node → [(dest, weight)])", entries: Object.entries(adj).map(([u, l]) => [u, l.map(([v, w]) => `${v}@${w}`).join(" ")]) });
+    const H = hl => ({ t: "set", label: "min-heap (time, node)", v: heap.map(([t, u]) => `t=${t}→n${u}`), hl });
+    const D = hl => ({ t: "kv", label: "finalized shortest times", entries: kvEntries(dist), hl });
+    f.add(`Dijkstra from node ${k}: the heap always pops the node reachable in the LEAST time — that time is then its final shortest distance.`, 6, [A(), H({ "t=0→n1": "p" }), D()]);
+    let guard = 0;
+    while (heap.length && guard++ < 20) {
+      heap.sort((a, b) => a[0] - b[0]);
+      const [t, u] = heap.shift();
+      if (u in dist) {
+        f.add(`Pop (t=${t}, node ${u}) — but node ${u} is already finalized at t=${dist[u]}. Skip this stale entry.`, 9, [A(), H(), D({ [u]: "d" })]);
+        continue;
+      }
+      dist[u] = t;
+      f.add(`Pop (t=${t}, node ${u}) — first time seen, so ${t} IS its shortest arrival. Finalize it and relax its edges.`, 11, [A(), H(), D({ [u]: "g" })]);
+      const added = [];
+      for (const [v, w] of adj[u] || []) if (!(v in dist)) { heap.push([t + w, v]); added.push(`t=${t + w}→n${v}`); }
+      if (added.length) f.add(`Push neighbors of ${u}: ${added.join(", ")}.`, 14, [A(), H(Object.fromEntries(added.map(x => [x, "y"]))), D()]);
+    }
+    const ans = Object.keys(dist).length === n ? Math.max(...Object.values(dist)) : -1;
+    f.add(ans === -1 ? `Some node was never reached — return -1.` : `All ${n} nodes reached; the signal arrives everywhere by t=${ans} (the max shortest time). O(E log V).`, 15, [A(), H(), D()], true);
+    return f;
+  },
+};
+
+// ---------------------------------------------------------- Reconstruct Itinerary
+VIS["reconstruct-itinerary"] = {
+  inputs: [],
+  code: `def findItinerary(tickets):
+    adj = defaultdict(list)
+    for src, dst in sorted(tickets, reverse=True):
+        adj[src].append(dst)   # smallest dst on top
+    route = []
+    stack = ["JFK"]
+    while stack:
+        while adj[stack[-1]]:
+            stack.append(adj[stack[-1]].pop())
+        route.append(stack.pop())
+    return route[::-1]`,
+  gen() {
+    const f = mkFrames();
+    const tickets = [["JFK", "SFO"], ["JFK", "ATL"], ["SFO", "ATL"], ["ATL", "JFK"], ["ATL", "SFO"]];
+    const adj = {};
+    for (const [s, d] of [...tickets].sort((a, b) => (a[1] < b[1] ? 1 : -1))) (adj[s] = adj[s] || []).push(d);
+    const A = hl => ({ t: "kv", label: "adj (next stops, alphabetical)", entries: Object.entries(adj).map(([s, l]) => [s, `[${l.slice().reverse().join(", ")}]`]), hl });
+    const stack = ["JFK"];
+    const route = [];
+    const S = hl => ({ t: "stack", label: "stack", v: [...stack], hl });
+    const R = () => ({ t: "arr", label: "route (built in reverse)", v: route.length ? route.slice().reverse() : ["·"], hl: {} });
+    f.add(`Hierholzer's algorithm for an Eulerian path: always fly the alphabetically-smallest unused ticket; a dead end is prepended to the route.`, 6, [A(), S({ 0: "p" }), R()]);
+    let guard = 0;
+    while (stack.length && guard++ < 30) {
+      const top = stack[stack.length - 1];
+      if (adj[top] && adj[top].length) {
+        const nxt = adj[top].pop();
+        stack.push(nxt);
+        f.add(`At ${top}: take the smallest unused ticket → ${nxt}. Push it and keep flying.`, 9, [A({ [top]: "y" }), S({ [stack.length - 1]: "p" }), R()]);
+      } else {
+        route.push(stack.pop());
+        f.add(`${top} is a dead end (no tickets left) — pop it onto the front of the route.`, 10, [A(), S(), R()]);
+      }
+    }
+    f.add(`Reverse the popped order for the final itinerary: ${route.slice().reverse().join(" → ")}. O(E log E).`, 11, [A(), S(), R()], true);
+    return f;
+  },
+};
+
+// -------------------------------------------------- Cheapest Flights Within K Stops
+VIS["cheapest-flights-within-k-stops"] = {
+  inputs: [],
+  code: `def findCheapestPrice(n, flights, src, dst, k):
+    prices = [float("inf")] * n
+    prices[src] = 0
+    for _ in range(k + 1):          # at most k+1 hops
+        tmp = prices[:]             # snapshot!
+        for u, v, w in flights:
+            if prices[u] + w < tmp[v]:
+                tmp[v] = prices[u] + w
+        prices = tmp
+    return prices[dst] if prices[dst] != inf else -1`,
+  gen() {
+    const f = mkFrames();
+    const n = 4;
+    const flights = [[0, 1, 100], [1, 2, 100], [2, 0, 100], [1, 3, 600], [2, 3, 200]];
+    const src = 0, dst = 3, k = 1;
+    let prices = new Array(n).fill(Infinity);
+    prices[src] = 0;
+    const F = hl => ({ t: "set", label: "flights (u→v : cost)", v: flights.map(([u, v, w]) => `${u}→${v}:${w}`), hl });
+    const P = hl => ({ t: "arr", label: "cheapest price to each city", v: prices.map(p => (p === Infinity ? "∞" : p)), hl });
+    f.add(`Bellman-Ford capped at k+1 = ${k + 1} rounds. The snapshot is the trick: relaxing from LAST round's prices bounds paths to exactly one more hop per round.`, 4, [F(), P({ [src]: "g" })]);
+    for (let round = 0; round < k + 1; round++) {
+      const tmp = [...prices];
+      const relaxed = [];
+      for (const [u, v, w] of flights) {
+        if (prices[u] + w < tmp[v]) { tmp[v] = prices[u] + w; relaxed.push(v); }
+      }
+      prices = tmp;
+      f.add(`Round ${round + 1} (paths of ≤ ${round + 1} hop${round ? "s" : ""}): relax every flight from the snapshot → city ${relaxed.join(", ") || "none"} got cheaper.`, 9, [F(), P(Object.fromEntries(relaxed.map(v => [v, "y"])))]);
+    }
+    const ans = prices[dst] === Infinity ? -1 : prices[dst];
+    f.add(ans === -1 ? `No route within ${k} stops — return -1.` : `Cheapest ${src}→${dst} within ${k} stop(s): ${ans} (0→1→3 costs 700, but 0→1→2→3 needs 2 stops). O(k·E).`, 10, [F(), P({ [dst]: ans === -1 ? "r" : "g" })], true);
+    return f;
+  },
+};
+
+// ------------------------------------------------------------ Swim in Rising Water
+VIS["swim-in-rising-water"] = {
+  inputs: [],
+  code: `def swimInWater(grid):
+    n = len(grid)
+    heap = [(grid[0][0], 0, 0)]    # (max elevation, r, c)
+    seen = {(0, 0)}
+    while heap:
+        t, r, c = heappop(heap)
+        if r == n - 1 and c == n - 1:
+            return t
+        for dr, dc in [(1,0),(-1,0),(0,1),(0,-1)]:
+            nr, nc = r + dr, c + dc
+            if (0 <= nr < n and 0 <= nc < n
+                    and (nr, nc) not in seen):
+                seen.add((nr, nc))
+                heappush(heap,
+                    (max(t, grid[nr][nc]), nr, nc))`,
+  gen() {
+    const f = mkFrames();
+    const grid = [[0, 2, 1, 3], [4, 8, 6, 5], [12, 9, 10, 7], [11, 14, 13, 15]];
+    const n = grid.length;
+    let heap = [[grid[0][0], 0, 0]];
+    const seen = new Set(["0,0"]);
+    const G = extra => {
+      const hl = {};
+      seen.forEach(k => (hl[k] = "w"));
+      Object.assign(hl, extra || {});
+      return { t: "grid", label: "elevations (outlined = visited)", v: grid, hl };
+    };
+    const V = t => ({ t: "vars", entries: [["water level t", t]] });
+    f.add(`A path's cost is the HIGHEST cell it crosses (you wait for water to rise). Dijkstra-style: always expand the frontier cell with the lowest max-so-far.`, 5, [G({ "0,0": "p" }), V(grid[0][0])]);
+    let guard = 0;
+    while (heap.length && guard++ < 30) {
+      heap.sort((a, b) => a[0] - b[0]);
+      const [t, r, c] = heap.shift();
+      if (r === n - 1 && c === n - 1) {
+        f.add(`Reached the bottom-right at water level ${t} — that's the earliest arrival. Return ${t}.`, 8, [G({ [r + "," + c]: "g" }), V(t)], true);
+        return f;
+      }
+      const added = [];
+      for (const [dr, dc] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nr = r + dr, nc = c + dc;
+        if (nr >= 0 && nr < n && nc >= 0 && nc < n && !seen.has(nr + "," + nc)) {
+          seen.add(nr + "," + nc);
+          heap.push([Math.max(t, grid[nr][nc]), nr, nc]);
+          added.push(nr + "," + nc);
+        }
+      }
+      f.add(`Expand (${r},${c}) at level ${t}: each neighbor's cost becomes max(${t}, its elevation). Push them onto the heap.`, 15, [G({ [r + "," + c]: "p", ...Object.fromEntries(added.map(k => [k, "y"])) }), V(t)]);
+    }
+    return f;
+  },
+};
+
+// ------------------------------------------------------------- Alien Dictionary
+VIS["alien-dictionary"] = {
+  inputs: [],
+  code: `def alienOrder(words):
+    adj = {c: set() for w in words for c in w}
+    indeg = {c: 0 for c in adj}
+    for a, b in zip(words, words[1:]):
+        for x, y in zip(a, b):
+            if x != y:
+                if y not in adj[x]:
+                    adj[x].add(y)
+                    indeg[y] += 1
+                break
+        else:
+            if len(a) > len(b):
+                return ""      # invalid: prefix after
+    queue = deque(c for c in indeg if indeg[c] == 0)
+    res = []
+    while queue:
+        c = queue.popleft()
+        res.append(c)
+        for nxt in adj[c]:
+            indeg[nxt] -= 1
+            if indeg[nxt] == 0:
+                queue.append(nxt)
+    return "".join(res) if len(res) == len(adj) else ""`,
+  gen() {
+    const f = mkFrames();
+    const words = ["wrt", "wrf", "er", "ett", "rftt"];
+    const chars = [...new Set(words.join(""))];
+    const adj = {}; chars.forEach(c => (adj[c] = new Set()));
+    const indeg = {}; chars.forEach(c => (indeg[c] = 0));
+    const W = () => ({ t: "arr", label: "words (sorted in alien order)", v: words, hl: {} });
+    const E = hl => ({ t: "set", label: "precedence edges (x before y)", v: Object.entries(adj).flatMap(([x, s]) => [...s].map(y => `${x}<${y}`)), hl });
+    f.add(`Adjacent words reveal ONE ordering rule each: their first differing letter. Collect those edges, then topologically sort the alphabet.`, 5, [W(), E()]);
+    for (let i = 0; i + 1 < words.length; i++) {
+      const a = words[i], b = words[i + 1];
+      let found = false;
+      for (let j = 0; j < Math.min(a.length, b.length); j++) {
+        if (a[j] !== b[j]) {
+          if (!adj[a[j]].has(b[j])) { adj[a[j]].add(b[j]); indeg[b[j]]++; }
+          f.add(`"${a}" before "${b}": first difference is '${a[j]}' vs '${b[j]}' → '${a[j]}' comes before '${b[j]}'.`, 9, [W(), E({ [`${a[j]}<${b[j]}`]: "y" })]);
+          found = true;
+          break;
+        }
+      }
+      if (!found) f.add(`"${a}" and "${b}" share a common prefix — no new rule from this pair.`, 8, [W(), E()]);
+    }
+    let queue = chars.filter(c => indeg[c] === 0);
+    const res = [];
+    const R = () => ({ t: "arr", label: "alien alphabet order", v: res.length ? res : ["·"], hl: {} });
+    f.add(`Now Kahn's topo-sort: letters with no "must come after" constraint go first.`, 15, [E(), R()]);
+    let guard = 0;
+    while (queue.length && guard++ < 30) {
+      queue.sort();
+      const c = queue.shift();
+      res.push(c);
+      const rel = [];
+      for (const nxt of adj[c]) { indeg[nxt]--; if (indeg[nxt] === 0) { queue.push(nxt); rel.push(nxt); } }
+      f.add(`Output '${c}' → order "${res.join("")}".${rel.length ? ` Now '${rel.join(", ")}' become unconstrained.` : ""}`, 20, [E({ ...Object.fromEntries([...adj[c]].map(y => [`${c}<${y}`, "g"])) }), R()]);
+    }
+    f.add(`Alien alphabet: "${res.join("")}". A valid topological order exists, so the input was consistent. O(total characters).`, 23, [E(), R()], true);
+    return f;
+  },
+};
+
+// ============================ batch 13: 1-D DP remainder ============================
+
+// ---------------------------------------------------------------- House Robber II
+VIS["house-robber-ii"] = {
+  inputs: [{ name: "nums", label: "house values (circular)", type: "arr", def: "[2, 3, 2]", max: 9, min: 2 }],
+  code: `def rob(nums):
+    if len(nums) == 1:
+        return nums[0]
+    def rob_line(arr):
+        rob1, rob2 = 0, 0
+        for n in arr:
+            rob1, rob2 = rob2, max(rob1 + n, rob2)
+        return rob2
+    return max(rob_line(nums[1:]),   # skip house 0
+               rob_line(nums[:-1]))  # skip last house`,
+  gen(nums) {
+    const f = mkFrames();
+    const A = (hl, excl) => ({ t: "arr", label: "houses (in a circle — first & last are neighbors)", v: nums, hl: { ...(excl !== undefined ? { [excl]: "d" } : {}), ...hl } });
+    const robLine = (arr, offset, exclLabel) => {
+      let r1 = 0, r2 = 0;
+      arr.forEach((n, i) => {
+        const take = r1 + n;
+        const taken = take > r2;
+        [r1, r2] = [r2, Math.max(take, r2)];
+        f.add(`(${exclLabel}) house ${offset + i} = ${n}: ${taken ? `rob it → best ${r2}` : `skip it → best stays ${r2}`}.`, 7, [A({ [offset + i]: taken ? "g" : "y" }, exclLabel === "skip first" ? 0 : nums.length - 1)]);
+      });
+      return r2;
+    };
+    if (nums.length === 1) {
+      f.add(`Only one house — just rob it: ${nums[0]}.`, 3, [A({ 0: "g" })], true);
+      return f;
+    }
+    f.add(`The circle means house 0 and the last house are adjacent, so they can't both be robbed. Run the linear robber TWICE, excluding one each time.`, 4, [A({}, undefined)]);
+    f.add(`Case A — exclude the LAST house, rob among houses 0..${nums.length - 2}.`, 10, [A({}, nums.length - 1)]);
+    const a = robLine(nums.slice(0, -1), 0, "skip last");
+    f.add(`Case B — exclude the FIRST house, rob among houses 1..${nums.length - 1}.`, 9, [A({}, 0)]);
+    const b = robLine(nums.slice(1), 1, "skip first");
+    f.add(`Best of the two cases: max(${a}, ${b}) = ${Math.max(a, b)}. Two linear passes, O(n).`, 10, [A({})], true);
+    return f;
+  },
+};
+
+// ----------------------------------------------------- Longest Palindromic Substring
+VIS["longest-palindromic-substring"] = {
+  inputs: [{ name: "s", label: "s", type: "str", def: "babad", max: 14 }],
+  code: `def longestPalindrome(s):
+    best = ""
+    def expand(l, r):
+        while l >= 0 and r < len(s) and s[l] == s[r]:
+            l -= 1
+            r += 1
+        return s[l+1:r]
+    for i in range(len(s)):
+        odd = expand(i, i)       # center on one char
+        even = expand(i, i + 1)  # center between two
+        best = max(best, odd, even, key=len)
+    return best`,
+  gen(s) {
+    const f = mkFrames();
+    let best = "";
+    const S = (l, r, cls) => {
+      const hl = {};
+      if (l >= 0 && r < s.length) for (let x = l; x <= r; x++) hl[x] = cls;
+      return { t: "arr", label: "s", v: [...s], hl, ch: true };
+    };
+    const V = () => ({ t: "vars", entries: [["best", best || "—"], ["length", best.length]] });
+    f.add(`Every palindrome has a center. Try all 2n−1 centers (each char, and each gap between chars) and expand outward while the ends match.`, 2, [S(-1, -1), V()]);
+    const expand = (l0, r0, kind) => {
+      let l = l0, r = r0;
+      while (l >= 0 && r < s.length && s[l] === s[r]) { l--; r++; }
+      const found = s.slice(l + 1, r);
+      if (found.length > best.length) {
+        best = found;
+        f.add(`${kind} center at index ${l0 === r0 ? l0 : `${l0}·${r0}`}: expanded to "${found}" (length ${found.length}) — new best!`, 6, [S(l + 1, r - 1, "g"), V()]);
+      } else if (found.length >= 1) {
+        f.add(`${kind} center at index ${l0 === r0 ? l0 : `${l0}·${r0}`}: longest here is "${found}" — doesn't beat best.`, 6, [S(l + 1, r - 1, "p"), V()]);
+      }
+    };
+    for (let i = 0; i < s.length; i++) {
+      expand(i, i, "Odd");
+      if (i + 1 < s.length && s[i] === s[i + 1]) expand(i, i + 1, "Even");
+    }
+    f.add(`Longest palindromic substring: "${best}". O(n²) — n centers, each expanding up to n.`, 11, [S(0, -1), V()], true);
+    return f;
+  },
+};
+
+// --------------------------------------------------------------- Palindromic Substrings
+VIS["palindromic-substrings"] = {
+  inputs: [{ name: "s", label: "s", type: "str", def: "aaa", max: 12 }],
+  code: `def countSubstrings(s):
+    count = 0
+    def expand(l, r):
+        nonlocal count
+        while l >= 0 and r < len(s) and s[l] == s[r]:
+            count += 1
+            l -= 1
+            r += 1
+    for i in range(len(s)):
+        expand(i, i)      # odd-length centers
+        expand(i, i + 1)  # even-length centers
+    return count`,
+  gen(s) {
+    const f = mkFrames();
+    let count = 0;
+    const S = (l, r, cls) => {
+      const hl = {};
+      if (l >= 0 && r < s.length) for (let x = l; x <= r; x++) hl[x] = cls;
+      return { t: "arr", label: "s", v: [...s], hl, ch: true };
+    };
+    const V = () => ({ t: "vars", entries: [["count", count]] });
+    f.add(`Same expand-around-center idea, but COUNT every successful expansion — each is a distinct palindromic substring.`, 2, [S(-1, -1), V()]);
+    const expand = (l0, r0, kind) => {
+      let l = l0, r = r0;
+      while (l >= 0 && r < s.length && s[l] === s[r]) {
+        count++;
+        f.add(`${kind} center ${l0 === r0 ? `at ${l0}` : `between ${l0},${r0}`}: "${s.slice(l, r + 1)}" is a palindrome (+1 → ${count}).`, 6, [S(l, r, "g"), V()]);
+        l--; r++;
+      }
+    };
+    for (let i = 0; i < s.length; i++) {
+      expand(i, i, "Odd");
+      expand(i, i + 1, "Even");
+    }
+    f.add(`Total palindromic substrings: ${count}. O(n²).`, 12, [S(0, -1), V()], true);
+    return f;
+  },
+};
+
+// ----------------------------------------------------------------------- Decode Ways
+VIS["decode-ways"] = {
+  inputs: [{ name: "s", label: "digit string", type: "str", def: "226", max: 10 }],
+  code: `def numDecodings(s):
+    dp = [0] * (len(s) + 1)
+    dp[len(s)] = 1              # empty suffix: 1 way
+    for i in range(len(s) - 1, -1, -1):
+        if s[i] != "0":
+            dp[i] = dp[i + 1]                 # single digit
+            if i + 1 < len(s) and int(s[i:i+2]) <= 26:
+                dp[i] += dp[i + 2]            # two digits
+    return dp[0]`,
+  gen(s) {
+    const f = mkFrames();
+    const n = s.length;
+    const dp = new Array(n + 1).fill(0);
+    dp[n] = 1;
+    const S = hl => ({ t: "arr", label: "s", v: [...s], hl, ch: true });
+    const D = hl => ({ t: "arr", label: "dp[i] = ways to decode s[i:]", v: dp, hl });
+    f.add(`Digits map 1→A … 26→Z. dp[i] = ways to decode the suffix from i. Empty suffix has 1 way (dp[${n}] = 1). Fill backwards.`, 3, [S({}), D({ [n]: "g" })]);
+    for (let i = n - 1; i >= 0; i--) {
+      if (s[i] === "0") {
+        f.add(`s[${i}] = '0' — no letter starts with 0, so dp[${i}] = 0 (this suffix is undecodable alone).`, 5, [S({ [i]: "r" }), D({ [i]: "r" })]);
+        continue;
+      }
+      dp[i] = dp[i + 1];
+      let twoOk = false;
+      if (i + 1 < n && parseInt(s.slice(i, i + 2), 10) <= 26) { dp[i] += dp[i + 2]; twoOk = true; }
+      f.add(`s[${i}] = '${s[i]}': take it alone (+dp[${i + 1}] = ${dp[i + 1]})${twoOk ? `, or pair "${s.slice(i, i + 2)}" ≤ 26 (+dp[${i + 2}] = ${dp[i + 2]})` : (i + 1 < n ? `; pair "${s.slice(i, i + 2)}" > 26, invalid` : "")} → dp[${i}] = ${dp[i]}.`, twoOk ? 8 : 6, [S({ [i]: "p", ...(twoOk ? { [i + 1]: "y" } : {}) }), D({ [i]: "g", [i + 1]: "p", ...(twoOk ? { [i + 2]: "p" } : {}) })]);
+    }
+    f.add(`dp[0] = ${dp[0]} — total ways to decode "${s}". O(n) time and space (O(1) with two variables).`, 9, [S({}), D({ 0: "g" })], true);
+    return f;
+  },
+};
+
+// ------------------------------------------------------ Partition Equal Subset Sum
+VIS["partition-equal-subset-sum"] = {
+  inputs: [{ name: "nums", label: "nums", type: "arr", def: "[1, 5, 11, 5]", max: 8, min: 1 }],
+  code: `def canPartition(nums):
+    total = sum(nums)
+    if total % 2:
+        return False
+    target = total // 2
+    dp = {0}   # reachable subset sums
+    for n in nums:
+        dp |= {s + n for s in dp if s + n <= target}
+        if target in dp:
+            return True
+    return target in dp`,
+  gen(nums) {
+    const f = mkFrames();
+    const total = nums.reduce((a, b) => a + b, 0);
+    const A = hl => ({ t: "arr", label: "nums", v: nums, hl });
+    if (total % 2) {
+      f.add(`Total is ${total} (odd) — can't split into two equal halves. Return False.`, 3, [A({})], true);
+      return f;
+    }
+    const target = total / 2;
+    let dp = new Set([0]);
+    const D = hl => ({ t: "set", label: "reachable subset sums", v: [...dp].sort((a, b) => a - b), hl });
+    const V = () => ({ t: "vars", entries: [["target", target]] });
+    f.add(`If some subset sums to total/2 = ${target}, the rest does too. Track every reachable subset sum, growing the set one number at a time.`, 5, [A({}), D(), V()]);
+    for (let i = 0; i < nums.length; i++) {
+      const n = nums[i];
+      const added = [];
+      for (const s of [...dp]) {
+        if (s + n <= target && !dp.has(s + n)) { added.push(s + n); }
+      }
+      added.forEach(x => dp.add(x));
+      if (dp.has(target)) {
+        f.add(`Adding ${n} reaches sums ${added.join(", ")} — including the target ${target}! A subset sums to half. Return True.`, 9, [A({ [i]: "g" }), D({ [target]: "g" }), V()], true);
+        return f;
+      }
+      f.add(`Consider ${n}: new reachable sums ${added.join(", ") || "none"}.`, 8, [A({ [i]: "p" }), D(Object.fromEntries(added.map(x => [x, "y"]))), V()]);
+    }
+    f.add(`${target} was never reachable — no equal partition exists. Return False. O(n · sum).`, 10, [A({}), D(), V()], true);
+    return f;
+  },
+};
+
+// ============================ batch 14: 2-D DP ============================
+
+// -------------------------------------------------- Longest Common Subsequence
+VIS["longest-common-subsequence"] = {
+  inputs: [
+    { name: "a", label: "text1", type: "str", def: "abcde", max: 8 },
+    { name: "b", label: "text2", type: "str", def: "ace", max: 8 },
+  ],
+  code: `def longestCommonSubsequence(text1, text2):
+    m, n = len(text1), len(text2)
+    dp = [[0] * (n + 1) for _ in range(m + 1)]
+    for i in range(m - 1, -1, -1):
+        for j in range(n - 1, -1, -1):
+            if text1[i] == text2[j]:
+                dp[i][j] = 1 + dp[i + 1][j + 1]
+            else:
+                dp[i][j] = max(dp[i + 1][j], dp[i][j + 1])
+    return dp[0][0]`,
+  gen(a, b) {
+    const f = mkFrames();
+    const m = a.length, n = b.length;
+    const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+    const cols = [...b].concat("∅");
+    const rows = [...a].concat("∅");
+    const D = hl => ({ t: "dp", label: "dp[i][j] = LCS of suffixes text1[i:], text2[j:]", v: dp, rows, cols, corner: "", hl });
+    f.add(`Build a table where dp[i][j] = LCS length of the two suffixes. On a character match, take 1 + the diagonal; otherwise the best of down/right.`, 3, [D({})]);
+    for (let i = m - 1; i >= 0; i--) {
+      for (let j = n - 1; j >= 0; j--) {
+        if (a[i] === b[j]) {
+          dp[i][j] = 1 + dp[i + 1][j + 1];
+          f.add(`'${a[i]}' == '${b[j]}' — extend the diagonal: dp[${i}][${j}] = 1 + ${dp[i + 1][j + 1]} = ${dp[i][j]}.`, 7, [D({ [i + "," + j]: "g", [(i + 1) + "," + (j + 1)]: "p" })]);
+        } else {
+          dp[i][j] = Math.max(dp[i + 1][j], dp[i][j + 1]);
+          f.add(`'${a[i]}' ≠ '${b[j]}' — skip one char: dp[${i}][${j}] = max(down ${dp[i + 1][j]}, right ${dp[i][j + 1]}) = ${dp[i][j]}.`, 9, [D({ [i + "," + j]: "y", [(i + 1) + "," + j]: "p", [i + "," + (j + 1)]: "p" })]);
+        }
+      }
+    }
+    f.add(`dp[0][0] = ${dp[0][0]} — the LCS length of "${a}" and "${b}". O(m·n).`, 10, [D({ "0,0": "g" })], true);
+    return f;
+  },
+};
+
+// --------------------------------------------------------------- Edit Distance
+VIS["edit-distance"] = {
+  inputs: [
+    { name: "a", label: "word1", type: "str", def: "horse", max: 7 },
+    { name: "b", label: "word2", type: "str", def: "ros", max: 7 },
+  ],
+  code: `def minDistance(word1, word2):
+    m, n = len(word1), len(word2)
+    dp = [[0] * (n + 1) for _ in range(m + 1)]
+    for j in range(n + 1): dp[m][j] = n - j
+    for i in range(m + 1): dp[i][n] = m - i
+    for i in range(m - 1, -1, -1):
+        for j in range(n - 1, -1, -1):
+            if word1[i] == word2[j]:
+                dp[i][j] = dp[i + 1][j + 1]
+            else:
+                dp[i][j] = 1 + min(dp[i + 1][j],    # delete
+                                   dp[i][j + 1],    # insert
+                                   dp[i + 1][j + 1])# replace
+    return dp[0][0]`,
+  gen(a, b) {
+    const f = mkFrames();
+    const m = a.length, n = b.length;
+    const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+    for (let j = 0; j <= n; j++) dp[m][j] = n - j;
+    for (let i = 0; i <= m; i++) dp[i][n] = m - i;
+    const rows = [...a].concat("∅"), cols = [...b].concat("∅");
+    const D = hl => ({ t: "dp", label: "dp[i][j] = edits to turn word1[i:] into word2[j:]", v: dp, rows, cols, hl });
+    f.add(`Base cases: turning a suffix into "" costs one delete per char (last row/column). Fill the rest bottom-up.`, 5, [D(Object.fromEntries([...Array(n + 1).keys()].map(j => [m + "," + j, "p"]).concat([...Array(m + 1).keys()].map(i => [i + "," + n, "p"]))))]);
+    for (let i = m - 1; i >= 0; i--) {
+      for (let j = n - 1; j >= 0; j--) {
+        if (a[i] === b[j]) {
+          dp[i][j] = dp[i + 1][j + 1];
+          f.add(`'${a[i]}' == '${b[j]}' — no edit needed, inherit the diagonal: dp[${i}][${j}] = ${dp[i][j]}.`, 9, [D({ [i + "," + j]: "g", [(i + 1) + "," + (j + 1)]: "p" })]);
+        } else {
+          dp[i][j] = 1 + Math.min(dp[i + 1][j], dp[i][j + 1], dp[i + 1][j + 1]);
+          f.add(`'${a[i]}' ≠ '${b[j]}' — 1 + min(delete ${dp[i + 1][j]}, insert ${dp[i][j + 1]}, replace ${dp[i + 1][j + 1]}) = ${dp[i][j]}.`, 12, [D({ [i + "," + j]: "y", [(i + 1) + "," + j]: "p", [i + "," + (j + 1)]: "p", [(i + 1) + "," + (j + 1)]: "p" })]);
+        }
+      }
+    }
+    f.add(`dp[0][0] = ${dp[0][0]} — the minimum edits to turn "${a}" into "${b}". O(m·n).`, 14, [D({ "0,0": "g" })], true);
+    return f;
+  },
+};
+
+// ------------------------------------------------------- Coin Change II
+VIS["coin-change-ii"] = {
+  inputs: [
+    { name: "coins", label: "coins", type: "arr", def: "[1, 2, 5]", max: 4, min: 1 },
+    { name: "amount", label: "amount", type: "int", def: "5", min: 1, max: 9 },
+  ],
+  code: `def change(amount, coins):
+    dp = [0] * (amount + 1)
+    dp[0] = 1
+    for coin in coins:            # coins in OUTER loop
+        for a in range(coin, amount + 1):
+            dp[a] += dp[a - coin]
+    return dp[amount]`,
+  gen(coins, amount) {
+    const f = mkFrames();
+    coins = [...new Set(coins.map(c => Math.max(1, c)))].sort((a, b) => a - b);
+    const dp = new Array(amount + 1).fill(0);
+    dp[0] = 1;
+    const D = hl => ({ t: "arr", label: "dp[a] = number of ways to make amount a", v: dp, hl });
+    const C = hl => ({ t: "arr", label: "coins", v: coins, hl });
+    f.add(`Counting COMBINATIONS (not orderings). The trick: put coins in the OUTER loop so each coin is considered once per amount — order never varies.`, 3, [C({}), D({ 0: "g" })]);
+    for (let ci = 0; ci < coins.length; ci++) {
+      const coin = coins[ci];
+      f.add(`Introduce coin ${coin}: now count ways that may use it, sweeping amounts upward.`, 4, [C({ [ci]: "p" }), D({})]);
+      for (let av = coin; av <= amount; av++) {
+        dp[av] += dp[av - coin];
+        f.add(`dp[${av}] += dp[${av - coin}] (ways to make ${av - coin}, then add a ${coin}) → dp[${av}] = ${dp[av]}.`, 6, [C({ [ci]: "p" }), D({ [av]: "g", [av - coin]: "p" })]);
+      }
+    }
+    f.add(`dp[${amount}] = ${dp[amount]} distinct combination(s). O(amount · coins).`, 7, [C({}), D({ [amount]: "g" })], true);
+    return f;
+  },
+};
+
+// ----------------------------------------------------------------- Target Sum
+VIS["target-sum"] = {
+  inputs: [
+    { name: "nums", label: "nums", type: "arr", def: "[1, 1, 1, 1, 1]", max: 7, min: 1 },
+    { name: "target", label: "target", type: "int", def: "3", min: -20, max: 20 },
+  ],
+  code: `def findTargetSumWays(nums, target):
+    total = sum(nums)
+    if (total + target) % 2 or abs(target) > total:
+        return 0
+    subset = (total + target) // 2
+    dp = [0] * (subset + 1)
+    dp[0] = 1
+    for n in nums:
+        for s in range(subset, n - 1, -1):
+            dp[s] += dp[s - n]
+    return dp[subset]`,
+  gen(nums, target) {
+    const f = mkFrames();
+    const total = nums.reduce((a, b) => a + b, 0);
+    const N = hl => ({ t: "arr", label: "nums", v: nums, hl });
+    if ((total + target) % 2 !== 0 || Math.abs(target) > total) {
+      f.add(`(total ${total} + target ${target}) is odd or |target| > total — impossible to split. Return 0.`, 3, [N({})], true);
+      return f;
+    }
+    const subset = (total + target) / 2;
+    const dp = new Array(subset + 1).fill(0);
+    dp[0] = 1;
+    const D = hl => ({ t: "arr", label: `dp[s] = subsets summing to s`, v: dp, hl });
+    f.add(`Assigning +/− and hitting target reduces to: how many subsets sum to (total + target)/2 = ${subset}? Classic subset-count DP.`, 6, [N({}), D({ 0: "g" })]);
+    for (let i = 0; i < nums.length; i++) {
+      const n = nums[i];
+      for (let s = subset; s >= n; s--) {
+        dp[s] += dp[s - n];
+      }
+      f.add(`Include ${n}: for each target sum (high→low, so each ${n} is used once), dp[s] += dp[s−${n}]. dp = [${dp.join(", ")}].`, 10, [N({ [i]: "p" }), D({ [subset]: "y" })]);
+    }
+    f.add(`dp[${subset}] = ${dp[subset]} ways to reach target ${target}. O(n · subset).`, 11, [N({}), D({ [subset]: "g" })], true);
+    return f;
+  },
+};
+
+// -------------------------------------------- Best Time to Buy/Sell with Cooldown
+VIS["best-time-to-buy-and-sell-stock-with-cooldown"] = {
+  inputs: [{ name: "prices", label: "prices", type: "arr", def: "[1, 2, 3, 0, 2]", max: 9, min: 1 }],
+  code: `def maxProfit(prices):
+    hold, sold, rest = float("-inf"), 0, 0
+    for p in prices:
+        prev_sold = sold
+        sold = hold + p          # sell today
+        hold = max(hold, rest - p)  # buy or keep holding
+        rest = max(rest, prev_sold) # cooldown or stay free
+    return max(sold, rest)`,
+  gen(prices) {
+    const f = mkFrames();
+    prices = prices.map(p => Math.max(0, p));
+    let hold = -Infinity, sold = 0, rest = 0;
+    const B = hl => ({ t: "bars", label: "prices by day", v: prices, hl });
+    const fmt = x => (x === -Infinity ? "-∞" : x);
+    const V = () => ({ t: "vars", entries: [["hold (own a share)", fmt(hold)], ["sold (just sold)", sold], ["rest (free to buy)", rest]] });
+    f.add(`Three states per day: holding a share, just sold (must cool down tomorrow), or resting/free. Each day updates from yesterday's states.`, 2, [B({}), V()]);
+    prices.forEach((p, i) => {
+      const prevSold = sold;
+      sold = hold + p;
+      hold = Math.max(hold, rest - p);
+      rest = Math.max(rest, prevSold);
+      f.add(`Day ${i} (price ${p}): sold = hold+${p} = ${fmt(sold)}; hold = max(keep, rest−${p}) = ${fmt(hold)}; rest = max(stay, prev sold) = ${rest}.`, 4, [B({ [i]: "p" }), V()]);
+    });
+    f.add(`Best ending state: max(sold ${sold}, rest ${rest}) = ${Math.max(sold, rest)}. O(n), constant space.`, 7, [B({}), V()], true);
+    return f;
+  },
+};
+
+// -------------------------------------------------------- Interleaving String
+VIS["interleaving-string"] = {
+  inputs: [
+    { name: "s1", label: "s1", type: "str", def: "abc", max: 6 },
+    { name: "s2", label: "s2", type: "str", def: "xyz", max: 6 },
+    { name: "s3", label: "s3", type: "str", def: "axbycz", max: 12 },
+  ],
+  code: `def isInterleave(s1, s2, s3):
+    m, n = len(s1), len(s2)
+    if m + n != len(s3):
+        return False
+    dp = [[False] * (n + 1) for _ in range(m + 1)]
+    dp[m][n] = True
+    for i in range(m, -1, -1):
+        for j in range(n, -1, -1):
+            if (i < m and s1[i] == s3[i + j]
+                    and dp[i + 1][j]):
+                dp[i][j] = True
+            if (j < n and s2[j] == s3[i + j]
+                    and dp[i][j + 1]):
+                dp[i][j] = True
+    return dp[0][0]`,
+  gen(s1, s2, s3) {
+    const f = mkFrames();
+    const m = s1.length, n = s2.length;
+    if (m + n !== s3.length) {
+      f.add(`|s1| + |s2| = ${m + n} ≠ |s3| = ${s3.length} — lengths don't add up. Return False.`, 3, [{ t: "vars", entries: [["s3", s3]] }], true);
+      return f;
+    }
+    const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(false));
+    dp[m][n] = true;
+    const rows = [...s1].concat("∅"), cols = [...s2].concat("∅");
+    const D = hl => ({ t: "dp", label: "dp[i][j]: can s3[:i+j] use s1[i:] & s2[j:]?", v: dp.map(r => r.map(x => (x ? "T" : "·"))), rows, cols, hl });
+    f.add(`dp[i][j] = can s3's first i+j chars be built from s1[i:] and s2[j:]? Empty+empty = True; work backwards, taking a char from either string when it matches.`, 6, [D({ [m + "," + n]: "g" })]);
+    for (let i = m; i >= 0; i--) {
+      for (let j = n; j >= 0; j--) {
+        if (i === m && j === n) continue;
+        let ok = false, why = "";
+        if (i < m && s1[i] === s3[i + j] && dp[i + 1][j]) { ok = true; why = `s1[${i}]='${s1[i]}' matches s3[${i + j}] and dp[${i + 1}][${j}] holds`; }
+        if (j < n && s2[j] === s3[i + j] && dp[i][j + 1]) { ok = true; why = why || `s2[${j}]='${s2[j]}' matches s3[${i + j}] and dp[${i}][${j + 1}] holds`; }
+        dp[i][j] = ok;
+        if (ok) f.add(`dp[${i}][${j}] = True — ${why}.`, 9, [D({ [i + "," + j]: "g" })]);
+      }
+    }
+    f.add(dp[0][0] ? `dp[0][0] = True — "${s3}" IS an interleaving of "${s1}" and "${s2}". O(m·n).` : `dp[0][0] = False — no valid interleaving.`, 15, [D({ "0,0": dp[0][0] ? "g" : "r" })], true);
+    return f;
+  },
+};
+
+// ----------------------------------------------- Longest Increasing Path in Matrix
+VIS["longest-increasing-path-in-a-matrix"] = {
+  inputs: [],
+  code: `def longestIncreasingPath(matrix):
+    rows, cols = len(matrix), len(matrix[0])
+    memo = {}
+    def dfs(r, c):
+        if (r, c) in memo:
+            return memo[(r, c)]
+        best = 1
+        for dr, dc in [(1,0),(-1,0),(0,1),(0,-1)]:
+            nr, nc = r + dr, c + dc
+            if (0 <= nr < rows and 0 <= nc < cols
+                    and matrix[nr][nc] > matrix[r][c]):
+                best = max(best, 1 + dfs(nr, nc))
+        memo[(r, c)] = best
+        return best
+    return max(dfs(r, c)
+               for r in range(rows) for c in range(cols))`,
+  gen() {
+    const f = mkFrames();
+    const matrix = [[9, 9, 4], [6, 6, 8], [2, 1, 1]];
+    const rows = matrix.length, cols = matrix[0].length;
+    const memo = {};
+    const G = hl => ({ t: "grid", label: "matrix (cells labeled with longest path from them)", v: matrix.map((row, r) => row.map((v, c) => (memo[r + "," + c] ? `${v}·${memo[r + "," + c]}` : v))), hl });
+    f.add(`DFS + memo: the longest increasing path FROM a cell is 1 + the best among its strictly-larger neighbors. Memoize so each cell solves once.`, 4, [G({})]);
+    let best = 0;
+    const dfs = (r, c) => {
+      if (memo[r + "," + c]) return memo[r + "," + c];
+      let b = 1;
+      for (const [dr, dc] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nr = r + dr, nc = c + dc;
+        if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && matrix[nr][nc] > matrix[r][c]) b = Math.max(b, 1 + dfs(nr, nc));
+      }
+      memo[r + "," + c] = b;
+      f.add(`Cell (${r},${c})=${matrix[r][c]}: longest increasing path starting here is ${b}${b > 1 ? " (via a larger neighbor)" : " (a local peak)"}.`, 13, [G({ [r + "," + c]: b > best ? "g" : "p" })]);
+      return b;
+    };
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) best = Math.max(best, dfs(r, c));
+    f.add(`Longest increasing path anywhere: ${best} (1→2→6→9). Each cell computed once → O(m·n).`, 16, [G({})], true);
+    return f;
+  },
+};
+
+// -------------------------------------------------------- Distinct Subsequences
+VIS["distinct-subsequences"] = {
+  inputs: [
+    { name: "s", label: "s", type: "str", def: "rabbbit", max: 8 },
+    { name: "t", label: "t", type: "str", def: "rabbit", max: 7 },
+  ],
+  code: `def numDistinct(s, t):
+    m, n = len(s), len(t)
+    dp = [[0] * (n + 1) for _ in range(m + 1)]
+    for i in range(m + 1):
+        dp[i][n] = 1          # empty t: one way
+    for i in range(m - 1, -1, -1):
+        for j in range(n - 1, -1, -1):
+            dp[i][j] = dp[i + 1][j]         # skip s[i]
+            if s[i] == t[j]:
+                dp[i][j] += dp[i + 1][j + 1] # use s[i]
+    return dp[0][0]`,
+  gen(s, t) {
+    const f = mkFrames();
+    const m = s.length, n = t.length;
+    const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+    for (let i = 0; i <= m; i++) dp[i][n] = 1;
+    const rows = [...s].concat("∅"), cols = [...t].concat("∅");
+    const D = hl => ({ t: "dp", label: "dp[i][j] = ways s[i:] forms t[j:]", v: dp, rows, cols, hl });
+    f.add(`dp[i][j] = number of ways the suffix s[i:] can spell t[j:]. Matching an empty t is always 1 way (last column). Fill backwards.`, 5, [D(Object.fromEntries([...Array(m + 1).keys()].map(i => [i + "," + n, "p"])))]);
+    for (let i = m - 1; i >= 0; i--) {
+      for (let j = n - 1; j >= 0; j--) {
+        dp[i][j] = dp[i + 1][j];
+        if (s[i] === t[j]) {
+          dp[i][j] += dp[i + 1][j + 1];
+          f.add(`s[${i}]='${s[i]}' == t[${j}]: skip it (${dp[i + 1][j]} ways) OR use it (${dp[i + 1][j + 1]} ways) → dp[${i}][${j}] = ${dp[i][j]}.`, 10, [D({ [i + "," + j]: "g", [(i + 1) + "," + j]: "p", [(i + 1) + "," + (j + 1)]: "p" })]);
+        } else {
+          f.add(`s[${i}]='${s[i]}' ≠ t[${j}]: can only skip s[${i}] → dp[${i}][${j}] = ${dp[i][j]}.`, 8, [D({ [i + "," + j]: "y", [(i + 1) + "," + j]: "p" })]);
+        }
+      }
+    }
+    f.add(`dp[0][0] = ${dp[0][0]} distinct subsequence(s) of "${s}" equal "${t}". O(m·n).`, 11, [D({ "0,0": "g" })], true);
+    return f;
+  },
+};
+
+// ------------------------------------------------------------------ Burst Balloons
+VIS["burst-balloons"] = {
+  inputs: [],
+  code: `def maxCoins(nums):
+    nums = [1] + nums + [1]
+    n = len(nums)
+    dp = [[0] * n for _ in range(n)]
+    for length in range(2, n):
+        for l in range(n - length):
+            r = l + length
+            for m in range(l + 1, r):   # LAST to burst
+                dp[l][r] = max(dp[l][r],
+                    dp[l][m] + nums[l]*nums[m]*nums[r]
+                    + dp[m][r])
+    return dp[0][n - 1]`,
+  gen() {
+    const f = mkFrames();
+    const orig = [3, 1, 5, 8];
+    const nums = [1, ...orig, 1];
+    const N = nums.length;
+    const dp = Array.from({ length: N }, () => new Array(N).fill(0));
+    const labels = nums.map((v, i) => (i === 0 || i === N - 1 ? "•" : v));
+    const D = hl => ({ t: "dp", label: "dp[l][r] = best coins bursting balloons strictly between l and r", v: dp, rows: labels, cols: labels, hl });
+    f.add(`The insight that unlocks this: decide which balloon bursts LAST in a range. Then its neighbors are exactly the range's borders (which never move). Interval DP over widening ranges.`, 4, [D({})]);
+    for (let length = 2; length < N; length++) {
+      for (let l = 0; l + length < N; l++) {
+        const r = l + length;
+        for (let mid = l + 1; mid < r; mid++) {
+          const val = dp[l][mid] + nums[l] * nums[mid] * nums[r] + dp[mid][r];
+          dp[l][r] = Math.max(dp[l][r], val);
+        }
+        if (length <= 3 || r === N - 1) {
+          f.add(`Range (${l}, ${r}): try each balloon as the last to pop; best coins = ${dp[l][r]} (borders ${nums[l]} and ${nums[r]} stay put).`, 9, [D({ [l + "," + r]: "g" })]);
+        }
+      }
+    }
+    f.add(`dp[0][${N - 1}] = ${dp[0][N - 1]} — max coins from bursting all balloons. O(n³).`, 12, [D({ ["0," + (N - 1)]: "g" })], true);
+    return f;
+  },
+};
+
+// -------------------------------------------------- Regular Expression Matching
+VIS["regular-expression-matching"] = {
+  inputs: [
+    { name: "s", label: "s", type: "str", def: "aab", max: 7 },
+    { name: "p", label: "p (pattern)", type: "str", def: "c*a*b", max: 7 },
+  ],
+  code: `def isMatch(s, p):
+    m, n = len(s), len(p)
+    dp = [[False] * (n + 1) for _ in range(m + 1)]
+    dp[m][n] = True
+    for i in range(m, -1, -1):
+        for j in range(n - 1, -1, -1):
+            first = i < m and p[j] in (s[i], ".")
+            if j + 1 < n and p[j + 1] == "*":
+                dp[i][j] = (dp[i][j + 2]           # zero
+                    or (first and dp[i + 1][j]))   # one+
+            else:
+                dp[i][j] = first and dp[i + 1][j + 1]
+    return dp[0][0]`,
+  gen(s, p) {
+    const f = mkFrames();
+    const m = s.length, n = p.length;
+    const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(false));
+    dp[m][n] = true;
+    const rows = [...s].concat("∅"), cols = [...p].concat("∅");
+    const D = hl => ({ t: "dp", label: "dp[i][j]: does s[i:] match p[j:]?", v: dp.map(r => r.map(x => (x ? "T" : "·"))), rows, cols, hl });
+    f.add(`dp[i][j] = does s[i:] match p[j:]? '.' matches any char; '*' means zero-or-more of the char before it — that branch is the whole trick.`, 4, [D({ [m + "," + n]: "g" })]);
+    for (let i = m; i >= 0; i--) {
+      for (let j = n - 1; j >= 0; j--) {
+        const first = i < m && (p[j] === s[i] || p[j] === ".");
+        if (j + 1 < n && p[j + 1] === "*") {
+          dp[i][j] = dp[i][j + 2] || (first && dp[i + 1][j]);
+          if (dp[i][j]) f.add(`p[${j}]='${p[j]}${p[j + 1]}': match ZERO (dp[${i}][${j + 2}]) or, if '${p[j]}' fits s[${i}], match one+ (dp[${i + 1}][${j}]) → True.`, 9, [D({ [i + "," + j]: "g" })]);
+        } else {
+          dp[i][j] = first && dp[i + 1][j + 1];
+          if (dp[i][j]) f.add(`p[${j}]='${p[j]}' matches s[${i}]='${i < m ? s[i] : ""}' and the rest matches (diagonal) → dp[${i}][${j}] = True.`, 12, [D({ [i + "," + j]: "g", [(i + 1) + "," + (j + 1)]: "p" })]);
+        }
+      }
+    }
+    f.add(dp[0][0] ? `dp[0][0] = True — "${s}" fully matches pattern "${p}". O(m·n).` : `dp[0][0] = False — no match.`, 13, [D({ "0,0": dp[0][0] ? "g" : "r" })], true);
+    return f;
+  },
+};
+
+// ============================ batch 15: greedy, intervals, math, bits ============================
+
+// ------------------------------------------------------------------ Jump Game II
+VIS["jump-game-ii"] = {
+  inputs: [{ name: "nums", label: "nums (max jump lengths)", type: "arr", def: "[2, 3, 1, 1, 4]", max: 12, min: 1 }],
+  code: `def jump(nums):
+    jumps = 0
+    cur_end = 0
+    farthest = 0
+    for i in range(len(nums) - 1):
+        farthest = max(farthest, i + nums[i])
+        if i == cur_end:
+            jumps += 1
+            cur_end = farthest
+    return jumps`,
+  gen(nums) {
+    const f = mkFrames();
+    nums = nums.map(x => Math.max(0, x));
+    let jumps = 0, curEnd = 0, farthest = 0;
+    const A = (i, extra) => {
+      const hl = {};
+      for (let x = 0; x <= Math.min(curEnd, nums.length - 1); x++) hl[x] = "w";
+      Object.assign(hl, extra || {});
+      return { t: "arr", label: "nums (outlined = reachable in current jumps)", v: nums, hl, ptrs: { [i]: "i", ...(farthest <= nums.length - 1 && farthest !== i ? { [farthest]: "far" } : {}) } };
+    };
+    const V = () => ({ t: "vars", entries: [["jumps", jumps], ["cur_end", curEnd], ["farthest", farthest]] });
+    f.add(`BFS in disguise: each "level" is what's reachable in one more jump. Within the current level, compute the farthest next reach; crossing the boundary costs one jump.`, 2, [A(0), V()]);
+    for (let i = 0; i < nums.length - 1; i++) {
+      farthest = Math.max(farthest, i + nums[i]);
+      f.add(`At ${i}: from here you can reach index ${i + nums[i]}, so farthest = ${farthest}.`, 6, [A(i, { [i]: "p" }), V()]);
+      if (i === curEnd) {
+        jumps++;
+        curEnd = farthest;
+        f.add(`Hit the current level's boundary — take a jump (${jumps} total). The next level now extends to index ${curEnd}.`, 9, [A(i, { [i]: "g" }), V()]);
+      }
+    }
+    f.add(`Reached the end in ${jumps} jump(s) — the minimum possible. O(n), no DP table needed.`, 10, [A(nums.length - 1, { [nums.length - 1]: "g" }), V()], true);
+    return f;
+  },
+};
+
+// ------------------------------------------------------------ Hand of Straights
+VIS["hand-of-straights"] = {
+  inputs: [
+    { name: "hand", label: "hand", type: "arr", def: "[1, 2, 3, 6, 2, 3, 4, 7, 8]", max: 12, min: 1 },
+    { name: "groupSize", label: "groupSize", type: "int", def: "3", min: 1, max: 5 },
+  ],
+  code: `def isNStraightHand(hand, groupSize):
+    if len(hand) % groupSize:
+        return False
+    count = Counter(hand)
+    for start in sorted(count):
+        c = count[start]
+        if c > 0:
+            for x in range(start, start + groupSize):
+                if count[x] < c:
+                    return False
+                count[x] -= c
+    return True`,
+  gen(hand, groupSize) {
+    const f = mkFrames();
+    const H = hl => ({ t: "arr", label: "hand", v: hand, hl });
+    if (hand.length % groupSize !== 0) {
+      f.add(`${hand.length} cards can't split into groups of ${groupSize}. Return False.`, 3, [H({})], true);
+      return f;
+    }
+    const count = {};
+    hand.forEach(c => (count[c] = (count[c] || 0) + 1));
+    const C = hl => ({ t: "kv", label: "counts", entries: kvEntries(count), hl });
+    f.add(`Greedy: the smallest remaining card MUST start a straight. Build ${groupSize} consecutive cards from it, decrementing counts.`, 5, [C()]);
+    const keys = () => Object.keys(count).map(Number).filter(k => count[k] > 0).sort((a, b) => a - b);
+    let ks = keys();
+    while (ks.length) {
+      const start = ks[0];
+      const c = count[start];
+      const need = [];
+      for (let x = start; x < start + groupSize; x++) need.push(x);
+      let ok = true;
+      for (const x of need) if ((count[x] || 0) < c) { ok = false; break; }
+      if (!ok) {
+        const missing = need.find(x => (count[x] || 0) < c);
+        f.add(`Smallest card ${start} (×${c}) needs a straight ${need.join("-")}, but there aren't enough ${missing}'s. Impossible — return False.`, 10, [C({ [start]: "r", ...(count[missing] ? { [missing]: "r" } : {}) })], true);
+        return f;
+      }
+      need.forEach(x => (count[x] -= c));
+      f.add(`Form ${c} straight(s) ${need.join("-")} starting at ${start}. Decrement those counts.`, 11, [C(Object.fromEntries(need.map(x => [x, "g"])))]);
+      ks = keys();
+    }
+    f.add(`Every card consumed into valid consecutive groups — return True. O(n log n).`, 12, [C()], true);
+    return f;
+  },
+};
+
+// --------------------------------------------- Merge Triplets to Form Target
+VIS["merge-triplets-to-form-target-triplet"] = {
+  inputs: [],
+  code: `def mergeTriplets(triplets, target):
+    good = set()
+    for t in triplets:
+        if (t[0] <= target[0] and t[1] <= target[1]
+                and t[2] <= target[2]):
+            for i in range(3):
+                if t[i] == target[i]:
+                    good.add(i)
+    return len(good) == 3`,
+  gen() {
+    const f = mkFrames();
+    const triplets = [[2, 5, 3], [1, 8, 4], [1, 7, 5]];
+    const target = [2, 7, 5];
+    const T = hl => ({ t: "set", label: "triplets", v: triplets.map(t => `[${t.join(",")}]`), hl });
+    const G = hl => ({ t: "arr", label: "target positions matched", v: target.map((v, i) => `pos${i}=${v}`), hl });
+    const good = new Set();
+    f.add(`Merging takes element-wise MAXES. So a triplet is safe to merge only if it never exceeds the target anywhere; among safe ones, we need each position hit exactly.`, 2, [T({}), G({ target: undefined })]);
+    triplets.forEach((t, i) => {
+      const safe = t[0] <= target[0] && t[1] <= target[1] && t[2] <= target[2];
+      if (!safe) {
+        f.add(`[${t.join(",")}] exceeds the target somewhere — merging it would overshoot forever. Discard it.`, 4, [T({ [i]: "r" }), G(Object.fromEntries([...good].map(x => [`pos${x}=${target[x]}`, "g"])))]);
+        return;
+      }
+      const hits = [];
+      for (let k = 0; k < 3; k++) if (t[k] === target[k]) { good.add(k); hits.push(k); }
+      f.add(`[${t.join(",")}] stays within the target${hits.length ? ` and matches position(s) ${hits.join(", ")} exactly` : ""}. Good positions so far: {${[...good].sort().join(", ")}}.`, 8, [T({ [i]: "g" }), G(Object.fromEntries([...good].map(x => [`pos${x}=${target[x]}`, "g"])))]);
+    });
+    f.add(good.size === 3 ? `All 3 positions were hit by safe triplets — merging them yields the target exactly. Return True.` : `Only ${good.size}/3 positions achievable — return False.`, 9, [T({}), G(Object.fromEntries([...good].map(x => [`pos${x}=${target[x]}`, "g"])))], true);
+    return f;
+  },
+};
+
+// --------------------------------------------------- Valid Parenthesis String
+VIS["valid-parenthesis-string"] = {
+  inputs: [{ name: "s", label: "s (with * wildcards)", type: "str", def: "(*))", max: 12 }],
+  code: `def checkValidString(s):
+    lo, hi = 0, 0   # range of possible open counts
+    for c in s:
+        if c == "(":
+            lo += 1; hi += 1
+        elif c == ")":
+            lo -= 1; hi -= 1
+        else:           # '*': ( or ) or nothing
+            lo -= 1; hi += 1
+        if hi < 0:
+            return False       # too many ')'
+        lo = max(lo, 0)
+    return lo == 0`,
+  gen(s) {
+    const f = mkFrames();
+    let lo = 0, hi = 0;
+    const S = (i, cls) => ({ t: "arr", label: "s", v: [...s], hl: i >= 0 ? { [i]: cls } : {}, ch: true });
+    const V = () => ({ t: "vars", entries: [["lo (min open)", lo], ["hi (max open)", hi]] });
+    f.add(`Track a RANGE of possible open-paren counts. '*' widens it (could be '(', ')', or nothing). Valid if 0 stays reachable and lo returns to 0.`, 2, [S(-1), V()]);
+    for (let i = 0; i < s.length; i++) {
+      const c = s[i];
+      if (c === "(") { lo++; hi++; f.add(`'(' — both bounds rise: lo=${lo}, hi=${hi}.`, 6, [S(i, "p"), V()]); }
+      else if (c === ")") { lo--; hi--; f.add(`')' — both bounds fall: lo=${lo}, hi=${hi}.`, 8, [S(i, "y"), V()]); }
+      else { lo--; hi++; f.add(`'*' — could be '(', ')', or empty, so the range widens: lo=${lo}, hi=${hi}.`, 10, [S(i, "g"), V()]); }
+      if (hi < 0) {
+        f.add(`hi < 0 — even treating every '*' as '(', there are too many ')'. Return False.`, 12, [S(i, "r"), V()], true);
+        return f;
+      }
+      if (lo < 0) { lo = 0; }
+    }
+    f.add(lo === 0 ? `lo = 0 is reachable at the end — a valid assignment of '*' exists. Return True. O(n), O(1).` : `lo = ${lo} > 0 — unmatched '(' remain no matter what. Return False.`, 13, [S(-1), V()], true);
+    return f;
+  },
+};
+
+// ----------------------------------- Minimum Interval to Include Each Query
+VIS["minimum-interval-to-include-each-query"] = {
+  inputs: [],
+  code: `def minInterval(intervals, queries):
+    intervals.sort()
+    res = {}
+    heap = []   # (size, end)
+    i = 0
+    for q in sorted(queries):
+        while i < len(intervals) and intervals[i][0] <= q:
+            l, r = intervals[i]
+            heappush(heap, (r - l + 1, r))
+            i += 1
+        while heap and heap[0][1] < q:
+            heappop(heap)      # expired: ends before q
+        res[q] = heap[0][0] if heap else -1
+    return [res[q] for q in queries]`,
+  gen() {
+    const f = mkFrames();
+    const intervals = [[1, 4], [2, 4], [3, 6], [4, 4]].sort((a, b) => a[0] - b[0]);
+    const queries = [2, 3, 4, 5];
+    const res = {};
+    let heap = []; // [size, end]
+    let i = 0;
+    const IV = hlIdx => [{ t: "iv", label: "intervals (sorted by start)", v: intervals.map(([s, e], k) => ({ s, e, cls: hlIdx === k ? "p" : (k < i ? "d" : undefined) })) }];
+    const H = () => ({ t: "set", label: "heap (size, end) — smallest size on top", v: heap.slice().sort((a, b) => a[0] - b[0]).map(([sz, e]) => `sz${sz}·end${e}`) });
+    const R = () => ({ t: "kv", label: "answer per query", entries: Object.entries(res).map(([q, v]) => [`q=${q}`, v]) });
+    f.add(`Process queries in increasing order. A min-heap keyed by interval SIZE gives the smallest containing interval; evict ones that ended before the query.`, 5, [...IV(), H(), R()]);
+    for (const q of [...queries].sort((a, b) => a - b)) {
+      while (i < intervals.length && intervals[i][0] <= q) {
+        const [l, r] = intervals[i];
+        heap.push([r - l + 1, r]);
+        f.add(`Query ${q}: interval [${l},${r}] starts ≤ ${q}, so it's a candidate — push (size ${r - l + 1}, end ${r}).`, 9, [...IV(i), H(), R()]);
+        i++;
+      }
+      heap.sort((a, b) => a[0] - b[0]);
+      while (heap.length && heap[0][1] < q) {
+        const [sz, e] = heap[0];
+        heap.shift();
+        f.add(`Query ${q}: top interval ends at ${e} < ${q} — it can't contain ${q}, evict it.`, 12, [...IV(), H(), R()]);
+        heap.sort((a, b) => a[0] - b[0]);
+      }
+      res[q] = heap.length ? heap[0][0] : -1;
+      f.add(`Query ${q}: smallest valid interval has size ${res[q] === -1 ? "— none" : res[q]}.`, 13, [...IV(), H(), R()]);
+    }
+    f.add(`Answers: [${queries.map(q => res[q]).join(", ")}]. Each interval enters/leaves the heap once → O((n+q) log n).`, 14, [...IV(), H(), R()], true);
+    return f;
+  },
+};
+
+// ------------------------------------------------------------ Set Matrix Zeroes
+VIS["set-matrix-zeroes"] = {
+  inputs: [],
+  code: `def setZeroes(matrix):
+    rows, cols = len(matrix), len(matrix[0])
+    first_row_zero = any(matrix[0][c] == 0
+                         for c in range(cols))
+    for r in range(1, rows):        # mark using row 0 / col 0
+        for c in range(cols):
+            if matrix[r][c] == 0:
+                matrix[0][c] = 0
+                matrix[r][0] = 0
+    for r in range(1, rows):        # apply marks
+        for c in range(1, cols):
+            if matrix[0][c] == 0 or matrix[r][0] == 0:
+                matrix[r][c] = 0
+    if matrix[0][0] == 0:
+        for r in range(rows): matrix[r][0] = 0
+    if first_row_zero:
+        for c in range(cols): matrix[0][c] = 0`,
+  gen() {
+    const f = mkFrames();
+    const matrix = [[1, 1, 1], [1, 0, 1], [1, 1, 1]];
+    const rows = matrix.length, cols = matrix[0].length;
+    const G = hl => ({ t: "grid", label: "matrix (row 0 & col 0 = the marker strips)", v: matrix, hl });
+    f.add(`O(1) space trick: use the first row and first column THEMSELVES as the "this row/col must zero" markers, instead of separate arrays.`, 2, [G({ "0,0": "p" })]);
+    const firstRowZero = matrix[0].some(v => v === 0);
+    const marks = [];
+    for (let r = 1; r < rows; r++) for (let c = 0; c < cols; c++) {
+      if (matrix[r][c] === 0) {
+        matrix[0][c] = 0;
+        matrix[r][0] = 0;
+        marks.push([r, c]);
+      }
+    }
+    f.add(`Found a 0 at (1,1) — record it by zeroing its row's marker (1,0) and column's marker (0,1).`, 8, [G({ "1,1": "r", "1,0": "y", "0,1": "y" })]);
+    for (let r = 1; r < rows; r++) for (let c = 1; c < cols; c++) {
+      if (matrix[0][c] === 0 || matrix[r][0] === 0) matrix[r][c] = 0;
+    }
+    f.add(`Second pass: any interior cell whose row-marker or column-marker is 0 gets zeroed.`, 13, [G(Object.fromEntries([].concat(...matrix.map((row, r) => row.map((v, c) => (v === 0 && r > 0 && c > 0 ? [r + "," + c, "g"] : null)).filter(Boolean)))))]);
+    if (matrix[0][0] === 0) for (let r = 0; r < rows; r++) matrix[r][0] = 0;
+    if (firstRowZero) for (let c = 0; c < cols; c++) matrix[0][c] = 0;
+    f.add(`Finally handle row 0 and column 0 from their saved flags. Done in O(m·n) time, O(1) extra space.`, 16, [G(Object.fromEntries([].concat(...matrix.map((row, r) => row.map((v, c) => (v === 0 ? [r + "," + c, "r"] : null)).filter(Boolean)))))], true);
+    return f;
+  },
+};
+
+// -------------------------------------------------------------------- Pow(x, n)
+VIS["powx-n"] = {
+  inputs: [
+    { name: "x", label: "x", type: "int", def: "2", min: -10, max: 10 },
+    { name: "n", label: "n (exponent)", type: "int", def: "10", min: -16, max: 16 },
+  ],
+  code: `def myPow(x, n):
+    if n < 0:
+        x, n = 1 / x, -n
+    result = 1
+    while n > 0:
+        if n & 1:           # odd exponent
+            result *= x
+        x *= x              # square the base
+        n >>= 1             # halve the exponent
+    return result`,
+  gen(x, n) {
+    const f = mkFrames();
+    let base = x, exp = n, result = 1;
+    if (exp < 0) { base = 1 / x; exp = -exp; }
+    const round = v => Math.round(v * 1e6) / 1e6;
+    const V = () => ({ t: "vars", entries: [["base", round(base)], ["exp (binary)", exp.toString(2)], ["result", round(result)]] });
+    f.add(`Fast exponentiation: x^10 = x^8 · x^2. Read the exponent's BITS — square the base each step, multiply into the result only where a bit is 1.`, 4, [V()]);
+    if (n < 0) f.add(`n was negative, so x → 1/x = ${round(base)} and exponent → ${exp}.`, 3, [V()]);
+    while (exp > 0) {
+      if (exp & 1) {
+        result *= base;
+        f.add(`Low bit of exponent is 1 → multiply result by current base ${round(base)} → result = ${round(result)}.`, 7, [V()]);
+      } else {
+        f.add(`Low bit is 0 → skip the multiply this round.`, 6, [V()]);
+      }
+      base *= base;
+      exp >>= 1;
+      f.add(`Square the base (→ ${round(base)}) and shift the exponent right (→ binary ${exp.toString(2)}).`, 9, [V()]);
+    }
+    f.add(`${x}^${n} = ${round(result)}. Only ${Math.abs(n).toString(2).length} iterations — O(log n).`, 10, [V()], true);
+    return f;
+  },
+};
+
+// ------------------------------------------------------------ Multiply Strings
+VIS["multiply-strings"] = {
+  inputs: [
+    { name: "a", label: "num1", type: "str", def: "123", max: 6 },
+    { name: "b", label: "num2", type: "str", def: "45", max: 6 },
+  ],
+  code: `def multiply(num1, num2):
+    if num1 == "0" or num2 == "0":
+        return "0"
+    res = [0] * (len(num1) + len(num2))
+    for i in range(len(num1) - 1, -1, -1):
+        for j in range(len(num2) - 1, -1, -1):
+            mul = int(num1[i]) * int(num2[j])
+            p1, p2 = i + j, i + j + 1
+            total = mul + res[p2]
+            res[p2] = total % 10
+            res[p1] += total // 10
+    result = "".join(map(str, res)).lstrip("0")
+    return result or "0"`,
+  gen(a, b) {
+    const f = mkFrames();
+    if (!/^\d+$/.test(a) || !/^\d+$/.test(b)) {
+      f.add(`Inputs must be non-negative integer strings. Adjust and re-run.`, 1, [{ t: "vars", entries: [["error", "digits only"] ] }], true);
+      return f;
+    }
+    const res = new Array(a.length + b.length).fill(0);
+    const R = hl => ({ t: "arr", label: "res (digit accumulator)", v: res, hl });
+    const A = i => ({ t: "arr", label: "num1", v: [...a], hl: i >= 0 ? { [i]: "p" } : {}, ch: true });
+    const B = j => ({ t: "arr", label: "num2", v: [...b], hl: j >= 0 ? { [j]: "y" } : {}, ch: true });
+    f.add(`Grade-school multiplication: digit i of num1 times digit j of num2 lands at result positions i+j and i+j+1 (tens and units).`, 4, [A(-1), B(-1), R({})]);
+    for (let i = a.length - 1; i >= 0; i--) {
+      for (let j = b.length - 1; j >= 0; j--) {
+        const mul = (+a[i]) * (+b[j]);
+        const p1 = i + j, p2 = i + j + 1;
+        const total = mul + res[p2];
+        res[p2] = total % 10;
+        res[p1] += Math.floor(total / 10);
+        f.add(`${a[i]} × ${b[j]} = ${mul}, plus carry at pos ${p2} → ${total}. Write ${total % 10} at ${p2}, carry ${Math.floor(total / 10)} to ${p1}.`, 10, [A(i), B(j), R({ [p1]: "p", [p2]: "g" })]);
+      }
+    }
+    const out = res.join("").replace(/^0+/, "") || "0";
+    f.add(`Strip leading zeros → "${out}". (${a} × ${b} = ${out}.) O(m·n).`, 13, [A(-1), B(-1), R(Object.fromEntries(res.map((_, k) => [k, "g"])))], true);
+    return f;
+  },
+};
+
+// --------------------------------------------------------------- Detect Squares
+VIS["detect-squares"] = {
+  inputs: [],
+  code: `class DetectSquares:
+    def __init__(self):
+        self.count = defaultdict(int)
+
+    def add(self, point):
+        self.count[tuple(point)] += 1
+
+    def count_squares(self, px, py):
+        total = 0
+        for (x, y), c in list(self.count.items()):
+            if abs(px - x) != abs(py - y) or px == x:
+                continue          # need a diagonal corner
+            total += (c * self.count[(px, y)]
+                        * self.count[(x, py)])
+        return total`,
+  gen() {
+    const f = mkFrames();
+    const pts = [[3, 10], [11, 2], [3, 2]];
+    const count = {};
+    pts.forEach(([x, y]) => (count[x + "," + y] = (count[x + "," + y] || 0) + 1));
+    const P = hl => ({ t: "set", label: "stored points", v: Object.keys(count).map(k => `(${k})`), hl });
+    f.add(`Add points to a frequency map. For a query point, scan stored points as the DIAGONAL corner — then the two side corners' counts multiply.`, 4, [P()]);
+    f.add(`add (3,10), (11,2), (3,2) — three points stored.`, 6, [P(Object.fromEntries(Object.keys(count).map(k => [`(${k})`, "p"])))]);
+    const [px, py] = [11, 10];
+    let total = 0;
+    f.add(`count(${px}, ${py}): look for a stored point that forms a square's diagonal with it (equal |dx| and |dy|, not the same column).`, 8, [P()]);
+    for (const key of Object.keys(count)) {
+      const [x, y] = key.split(",").map(Number);
+      if (Math.abs(px - x) !== Math.abs(py - y) || px === x) {
+        f.add(`(${x},${y}): |Δx|=${Math.abs(px - x)} ≠ |Δy|=${Math.abs(py - y)} (or same column) — not a diagonal corner. Skip.`, 10, [P({ [`(${key})`]: "d" })]);
+        continue;
+      }
+      const c2 = count[px + "," + y] || 0, c3 = count[x + "," + py] || 0;
+      const add = count[key] * c2 * c3;
+      total += add;
+      f.add(`(${x},${y}) is a diagonal corner! Need corners (${px},${y})×${c2} and (${x},${py})×${c3} → ${count[key]}·${c2}·${c3} = ${add} square(s).`, 13, [P({ [`(${key})`]: add ? "g" : "y" })]);
+    }
+    f.add(`Total squares with corner (${px},${py}): ${total}. Each query is O(number of stored points).`, 14, [P()], true);
+    return f;
+  },
+};
+
+// ------------------------------------------------------------- Number of 1 Bits
+VIS["number-of-1-bits"] = {
+  inputs: [{ name: "n", label: "n", type: "int", def: "11", min: 0, max: 9999 }],
+  code: `def hammingWeight(n):
+    count = 0
+    while n:
+        n &= n - 1     # clears the lowest set bit
+        count += 1
+    return count`,
+  gen(n) {
+    const f = mkFrames();
+    const bits = x => (x >>> 0).toString(2).padStart(8, "0");
+    let count = 0, cur = n;
+    const V = () => ({ t: "vars", entries: [["n (binary)", bits(cur)], ["count", count]] });
+    f.add(`Brian Kernighan's trick: n & (n−1) erases exactly the LOWEST set bit. Loop until n is 0, counting each erasure — runs once per set bit, not per bit.`, 3, [V()]);
+    while (cur) {
+      const before = cur;
+      cur &= cur - 1;
+      count++;
+      f.add(`${bits(before)} & ${bits(before - 1)} = ${bits(cur)} — cleared the lowest 1 (count ${count}).`, 4, [V()]);
+    }
+    f.add(`n reached 0 after ${count} erasures — so ${n} has ${count} set bit(s).`, 6, [V()], true);
+    return f;
+  },
+};
+
+// ---------------------------------------------------------------- Reverse Bits
+VIS["reverse-bits"] = {
+  inputs: [{ name: "n", label: "n", type: "int", def: "43261596", min: 0, max: 2000000000 }],
+  code: `def reverseBits(n):
+    result = 0
+    for _ in range(32):
+        result = (result << 1) | (n & 1)
+        n >>= 1
+    return result`,
+  gen(n) {
+    const f = mkFrames();
+    const bits = x => (x >>> 0).toString(2).padStart(32, "0");
+    let cur = n >>> 0, result = 0;
+    const V = () => ({ t: "vars", entries: [["n (remaining)", bits(cur)], ["result", bits(result)]] });
+    f.add(`Peel n's bits off the RIGHT and stack them onto result from the right too — since result shifts left each step, they land in reversed order. 32 steps.`, 3, [V()]);
+    for (let i = 0; i < 32; i++) {
+      const bit = cur & 1;
+      result = ((result << 1) | bit) >>> 0;
+      cur >>>= 1;
+      if (i < 3 || i === 31) f.add(`Step ${i + 1}: pull n's low bit (${bit}), shift result left and append it. n shifts right.`, 4, [V()]);
+      else if (i === 3) f.add(`… steps 5–31 continue the same peel-and-stack …`, 4, [V()]);
+    }
+    f.add(`After 32 steps every bit is mirrored: ${n} → ${result >>> 0}. O(1) — always exactly 32 iterations.`, 6, [V()], true);
+    return f;
+  },
+};
+
+// ---------------------------------------------------------- Sum of Two Integers
+VIS["sum-of-two-integers"] = {
+  inputs: [
+    { name: "a", label: "a", type: "int", def: "5", min: 0, max: 255 },
+    { name: "b", label: "b", type: "int", def: "3", min: 0, max: 255 },
+  ],
+  code: `def getSum(a, b):
+    while b != 0:
+        carry = (a & b) << 1   # where carries go
+        a = a ^ b              # add without carrying
+        b = carry              # now add the carry in
+    return a`,
+  gen(a0, b0) {
+    const f = mkFrames();
+    const bits = x => (x >>> 0).toString(2).padStart(8, "0");
+    let a = a0, b = b0;
+    const V = () => ({ t: "vars", entries: [["a (binary)", bits(a)], ["b / carry", bits(b)]] });
+    f.add(`Addition without '+': XOR adds each bit but ignores carries; AND-then-shift finds exactly where the carries belong. Repeat until no carry remains.`, 2, [V()]);
+    let guard = 0;
+    while (b !== 0 && guard++ < 20) {
+      const carry = (a & b) << 1;
+      const sum = a ^ b;
+      f.add(`a ^ b = ${bits(sum)} (sum ignoring carries); (a & b) << 1 = ${bits(carry >>> 0)} (the carries). Feed the carry back in as the new b.`, 5, [V()]);
+      a = sum;
+      b = carry;
+    }
+    f.add(`b (carry) is 0 — nothing left to add. a = ${a} = ${a0} + ${b0}. O(1) for fixed-width integers.`, 6, [V()], true);
+    return f;
+  },
+};

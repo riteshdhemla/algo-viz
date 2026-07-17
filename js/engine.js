@@ -145,6 +145,21 @@ function renderGrid(c) {
   return block(c.label, `<div class="gridwrap">${rows}</div>`);
 }
 
+function renderDP(c) {
+  // c.v: 2D array of cell values; c.rows / c.cols: header label arrays; c.hl: {"r,c":cls}
+  const cols = c.cols || [];
+  let head = `<tr><th class="dpcorner">${esc(c.corner ?? "")}</th>${cols.map(x => `<th>${esc(x)}</th>`).join("")}</tr>`;
+  const body = c.v.map((row, r) => {
+    const rh = c.rows ? `<th>${esc(c.rows[r])}</th>` : "";
+    const cells = row.map((val, cc) => {
+      const cls = (c.hl && c.hl[r + "," + cc]) ? " c-" + c.hl[r + "," + cc] : "";
+      return `<td class="dpcell${cls}">${esc(val)}</td>`;
+    }).join("");
+    return `<tr>${rh}${cells}</tr>`;
+  }).join("");
+  return block(c.label, `<table class="dptable">${cols.length ? head : ""}${body}</table>`);
+}
+
 function renderIV(c) {
   // c.v: [{s, e, cls, label}] — intervals drawn on a shared time axis
   const lo = Math.min(...c.v.map(x => x.s));
@@ -163,7 +178,7 @@ function block(label, inner) {
   return `<div class="viz-block">${label ? `<div class="viz-label">${esc(label)}</div>` : ""}${inner}</div>`;
 }
 
-const RENDERERS = { arr: renderArr, bars: renderBars, kv: renderKV, set: renderSet, stack: renderStack, vars: renderVars, ll: renderLL, tree: renderTree, grid: renderGrid, iv: renderIV };
+const RENDERERS = { arr: renderArr, bars: renderBars, kv: renderKV, set: renderSet, stack: renderStack, vars: renderVars, ll: renderLL, tree: renderTree, grid: renderGrid, iv: renderIV, dp: renderDP };
 
 function renderFrame(stage, frame) {
   stage.innerHTML = frame.c.map(c => RENDERERS[c.t](c)).join("");
