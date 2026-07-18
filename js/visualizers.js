@@ -769,54 +769,103 @@ VIS["3sum"] = {
 
 // ------------------------------------------------------ Trapping Rain Water
 VIS["trapping-rain-water"] = {
-  inputs: [{ name: "height", label: "height", type: "arr", def: "[0, 1, 0, 2, 1, 0, 1, 3, 2, 1, 2, 1]", max: 12 }],
-  code: `def trap(height):
-    l, r = 0, len(height) - 1
-    leftMax, rightMax = height[l], height[r]
+  variants: [
+    {
+      name: "Prefix / suffix max arrays · O(n) space",
+      inputs: [{ name: "height", label: "height", type: "arr", def: "[4, 2, 0, 3, 2, 5]", max: 10 }],
+      code: `def trap(height):
+    n = len(height)
+    maxLeft, maxRight = [0] * n, [0] * n
+    for i in range(1, n):
+        maxLeft[i] = max(maxLeft[i - 1], height[i - 1])
+    for i in range(n - 2, -1, -1):
+        maxRight[i] = max(maxRight[i + 1], height[i + 1])
     water = 0
-    while l < r:
-        if leftMax < rightMax:
-            l += 1
-            leftMax = max(leftMax, height[l])
-            water += leftMax - height[l]
-        else:
-            r -= 1
-            rightMax = max(rightMax, height[r])
-            water += rightMax - height[r]
+    for i in range(n):
+        water += max(0, min(maxLeft[i], maxRight[i]) - height[i])
     return water`,
-  gen(height) {
-    const f = mkFrames();
-    height = height.map(h => Math.max(0, h));
-    let l = 0, r = height.length - 1;
-    let leftMax = height[l], rightMax = height[r], water = 0;
-    const B = (hl, ptrs) => ({ t: "bars", label: "elevation map", v: height, hl, ptrs });
-    const V = () => ({ t: "vars", entries: [["leftMax", leftMax], ["rightMax", rightMax], ["water", water]] });
-    f.add(`Water above a bar is bounded by min(leftMax, rightMax). Advance the side with the smaller max — its bound is certain.`, 3,
-      [B({}, { [l]: "L", [r]: "R" }), V()]);
-    while (l < r) {
-      if (leftMax < rightMax) {
-        l++;
-        leftMax = Math.max(leftMax, height[l]);
-        const add = leftMax - height[l];
-        water += add;
-        f.add(add > 0
-          ? `leftMax (${leftMax}) < rightMax — move L to ${l}. Bar is ${height[l]}, so ${add} unit(s) of water sit on it.`
-          : `leftMax < rightMax — move L to ${l}. Bar ${height[l]} reaches leftMax, no water here.`, 9,
-          [B({ [l]: add > 0 ? "g" : "y" }, { [l]: "L", [r]: "R" }), V()]);
-      } else {
-        r--;
-        rightMax = Math.max(rightMax, height[r]);
-        const add = rightMax - height[r];
-        water += add;
-        f.add(add > 0
-          ? `rightMax (${rightMax}) ≤ leftMax side — move R to ${r}. Bar is ${height[r]}, so ${add} unit(s) of water sit on it.`
-          : `rightMax side is the smaller bound — move R to ${r}. Bar ${height[r]} reaches rightMax, no water here.`, 13,
-          [B({ [r]: add > 0 ? "g" : "y" }, { [l]: "L", [r]: "R" }), V()]);
-      }
-    }
-    f.add(`Pointers met — total trapped water: ${water} units. One pass, O(1) extra space.`, 14, [B({}, {}), V()], true);
-    return f;
-  },
+      gen(height) {
+        const f = mkFrames();
+        height = height.map(h => Math.max(0, h));
+        const n = height.length;
+        const maxLeft = new Array(n).fill(0);
+        const maxRight = new Array(n).fill(0);
+        const water = new Array(n).fill(0);
+        const B = (hl, ptrs) => ({ t: "bars", label: "height", v: height, hl, ptrs });
+        const ML = hl => ({ t: "arr", label: "maxLeft (tallest wall to the left)", v: maxLeft, hl });
+        const MR = hl => ({ t: "arr", label: "maxRight (tallest wall to the right)", v: maxRight, hl });
+        const W = hl => ({ t: "arr", label: "water per column", v: water, hl });
+        f.add(`The formula, made literal: water[i] = min(maxLeft[i], maxRight[i]) − height[i]. Precompute both max arrays once, then apply it. Three passes — the version you can write in your sleep.`, 3, [B({}, {}), ML({}), MR({})]);
+        for (let i = 1; i < n; i++) {
+          maxLeft[i] = Math.max(maxLeft[i - 1], height[i - 1]);
+          f.add(`Sweep left→right: maxLeft[${i}] = max(maxLeft[${i - 1}]=${maxLeft[i - 1]}, height[${i - 1}]=${height[i - 1]}) = ${maxLeft[i]}.`, 5, [B({ [i - 1]: "p" }, { [i]: "i" }), ML({ [i]: "g", [i - 1]: "p" }), MR({})]);
+        }
+        for (let i = n - 2; i >= 0; i--) {
+          maxRight[i] = Math.max(maxRight[i + 1], height[i + 1]);
+          f.add(`Sweep right→left: maxRight[${i}] = max(maxRight[${i + 1}]=${maxRight[i + 1]}, height[${i + 1}]=${height[i + 1]}) = ${maxRight[i]}.`, 7, [B({ [i + 1]: "p" }, { [i]: "i" }), ML({}), MR({ [i]: "g", [i + 1]: "p" })]);
+        }
+        f.add(`Both walls are now known for every column. Final pass applies the formula, clamped at 0.`, 9, [B({}, {}), ML({}), MR({})]);
+        let total = 0;
+        for (let i = 0; i < n; i++) {
+          const w = Math.max(0, Math.min(maxLeft[i], maxRight[i]) - height[i]);
+          water[i] = w;
+          total += w;
+          f.add(`Column ${i}: min(maxLeft ${maxLeft[i]}, maxRight ${maxRight[i]}) − height ${height[i]} = ${w}. Running total ${total}.`, 10, [B({ [i]: w > 0 ? "g" : "y" }, { [i]: "i" }), ML({ [i]: "p" }), MR({ [i]: "p" }), W({ [i]: w > 0 ? "g" : "d" })]);
+        }
+        f.add(`Total trapped water: ${total}. O(n) time but O(n) space — next, the two-pointer variant compresses both arrays away.`, 11, [B({}, {}), W(Object.fromEntries(water.map((w, i) => [i, w > 0 ? "g" : "d"])))], true);
+        return f;
+      },
+    },
+    {
+      name: "Two pointers · O(1) space (optimal)",
+      inputs: [{ name: "height", label: "height", type: "arr", def: "[0, 1, 0, 2, 1, 0, 1, 3, 2, 1, 2, 1]", max: 12 }],
+      code: `def trap(height):
+    l, r = 0, len(height) - 1
+    left_max = right_max = water = 0
+    while l < r:
+        left_max = max(left_max, height[l])
+        right_max = max(right_max, height[r])
+        if left_max < right_max:
+            water += left_max - height[l]
+            l += 1
+        else:
+            water += right_max - height[r]
+            r -= 1
+    return water`,
+      gen(height) {
+        const f = mkFrames();
+        height = height.map(h => Math.max(0, h));
+        let l = 0, r = height.length - 1;
+        let leftMax = 0, rightMax = 0, water = 0;
+        const B = (hl, ptrs) => ({ t: "bars", label: "elevation map", v: height, hl, ptrs });
+        const V = () => ({ t: "vars", entries: [["left_max", leftMax], ["right_max", rightMax], ["water", water]] });
+        f.add(`The unlock: you only ever need min(left_max, right_max). Walk in from both ends — whichever running max is smaller is the CERTAIN bound for its cell (the other side can only be taller). Settle that cell and step in.`, 4, [B({}, { [l]: "L", [r]: "R" }), V()]);
+        while (l < r) {
+          leftMax = Math.max(leftMax, height[l]);
+          rightMax = Math.max(rightMax, height[r]);
+          if (leftMax < rightMax) {
+            const add = leftMax - height[l];
+            water += add;
+            f.add(add > 0
+              ? `left_max ${leftMax} < right_max ${rightMax} → the left cell's bound is provably left_max. Bar ${height[l]} holds ${add} water. Advance L.`
+              : `left_max ${leftMax} < right_max ${rightMax} → left cell bounded by left_max, but bar ${height[l]} already reaches it — 0 water. Advance L.`, 8,
+              [B({ [l]: add > 0 ? "g" : "y" }, { [l]: "L", [r]: "R" }), V()]);
+            l++;
+          } else {
+            const add = rightMax - height[r];
+            water += add;
+            f.add(add > 0
+              ? `right_max ${rightMax} ≤ left_max ${leftMax} → the right cell's bound is provably right_max. Bar ${height[r]} holds ${add} water. Advance R.`
+              : `right_max ${rightMax} ≤ left_max ${leftMax} → right cell bounded by right_max, bar ${height[r]} reaches it — 0 water. Advance R.`, 11,
+              [B({ [r]: add > 0 ? "g" : "y" }, { [l]: "L", [r]: "R" }), V()]);
+            r--;
+          }
+        }
+        f.add(`Pointers met — total trapped water: ${water}. One pass, O(1) space: exactly the arrays version, with the maxima resolved lazily instead of stored.`, 13, [B({}, {}), V()], true);
+        return f;
+      },
+    },
+  ],
 };
 
 // ---------------------------------------------------------------- Min Stack
