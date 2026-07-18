@@ -63,6 +63,46 @@ function renderLists() {
   document.getElementById("lists").innerHTML = html || `<div class="no-results">No problems match “${esc(searchQuery)}”.</div>`;
 }
 
+// Renders the "Building the intuition" progression of approaches.
+function approachesSection(list) {
+  return `<div class="approaches">
+    <h3 class="approaches-h">Building the intuition</h3>
+    <p class="approaches-sub">The optimal solution is a compression of simpler ones. Read the progression to see where it comes from.</p>
+    ${list.map((a, i) => `
+      <details class="approach-card" open>
+        <summary>
+          <span class="astep">${i + 1}</span>
+          <span class="aname">${esc(a.name)}</span>
+          <span class="acx">${esc(a.time)} time · ${esc(a.space)} space</span>
+        </summary>
+        <div class="abody">
+          ${a.idea.map(par => `<p>${esc(par)}</p>`).join("")}
+          <pre class="acode">${esc(a.code)}</pre>
+        </div>
+      </details>`).join("")}
+  </div>`;
+}
+
+// Mounts a visualizer, with a tab selector when a problem has multiple variants.
+function mountVariants(root, variants) {
+  if (variants.length === 1) {
+    mountVisualizer(root, variants[0]);
+    return;
+  }
+  root.innerHTML = `
+    <div class="variant-tabs">
+      ${variants.map((v, i) => `<button class="variant-tab${i === 0 ? " active" : ""}" data-vi="${i}">${esc(v.name)}</button>`).join("")}
+    </div>
+    <div class="viz-mount"></div>`;
+  const mount = root.querySelector(".viz-mount");
+  const select = i => {
+    root.querySelectorAll(".variant-tab").forEach((b, bi) => b.classList.toggle("active", bi === i));
+    mountVisualizer(mount, variants[i]);
+  };
+  root.querySelectorAll(".variant-tab").forEach(b => b.addEventListener("click", () => select(+b.dataset.vi)));
+  select(0);
+}
+
 function problemPage(slug) {
   const p = PROBLEMS[slug];
   if (!p) {
@@ -81,18 +121,18 @@ function problemPage(slug) {
       <h3>Problem</h3>
       <p class="big">${esc(STATEMENTS[p.slug])}</p>
     </div>` : ""}
-    <div class="panel">
+    ${APPROACHES[p.slug] ? approachesSection(APPROACHES[p.slug]) : `<div class="panel">
       <h3>Optimal approach</h3>
       <p class="big">${esc(p.approach)}</p>
       <div class="cx">
         <div>Time<code>${esc(p.time)}</code></div>
         <div>Space<code>${esc(p.space)}</code></div>
       </div>
-    </div>
+    </div>`}
     <div id="vizroot"></div>`;
   const root = document.getElementById("vizroot");
   if (VIS[slug]) {
-    mountVisualizer(root, VIS[slug]);
+    mountVariants(root, VIS[slug].variants || [VIS[slug]]);
   } else {
     root.innerHTML = `<div class="soon">🎬 An interactive visualization for this problem is coming soon.<br>
       New visualizers are being added — <a href="#/">browse the ${Object.keys(VIS).length} interactive ones</a> in the meantime.</div>`;
