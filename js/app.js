@@ -24,6 +24,32 @@ function toggleUnderstood(slug, val) {
   return on;
 }
 
+function overallProgressMarkup() {
+  const total = Object.keys(PROBLEMS).length;
+  const done = understood.size;
+  const pct = Math.round((done / total) * 100);
+  return `<div class="overall-progress${done === total ? " complete" : ""}" id="overall-progress">
+    <div class="op-head">
+      <span class="op-title">Your progress</span>
+      <span class="op-count" id="op-count">${done} / ${total} understood · ${pct}%</span>
+    </div>
+    <div class="op-track"><div class="op-fill" id="op-fill" style="width:${pct}%"></div></div>
+  </div>`;
+}
+
+// Updates the overall progress bar in place (hero lives outside #lists, so it isn't rebuilt by renderLists).
+function updateOverallProgress() {
+  const total = Object.keys(PROBLEMS).length;
+  const done = understood.size;
+  const pct = Math.round((done / total) * 100);
+  const fill = document.getElementById("op-fill");
+  const count = document.getElementById("op-count");
+  const wrap = document.getElementById("overall-progress");
+  if (fill) fill.style.width = pct + "%";
+  if (count) count.textContent = `${done} / ${total} understood · ${pct}%`;
+  if (wrap) wrap.classList.toggle("complete", done === total);
+}
+
 function homePage() {
   const total = Object.keys(PROBLEMS).length;
   const vizCount = Object.keys(VIS).length;
@@ -45,6 +71,7 @@ function homePage() {
         <label class="toggle"><input type="checkbox" id="hideund" ${hideUnderstood ? "checked" : ""}> Hide understood</label>
       </div>
     </section>
+    ${overallProgressMarkup()}
     <div id="lists"></div>`;
   document.getElementById("search").addEventListener("input", e => {
     searchQuery = e.target.value;
@@ -67,6 +94,7 @@ function homePage() {
     toggleUnderstood(box.dataset.slug);
     const countEl = document.getElementById("understood-count");
     if (countEl) countEl.textContent = understood.size;
+    updateOverallProgress();
     renderLists();
   });
   renderLists();
