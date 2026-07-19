@@ -4,6 +4,25 @@ const DIFF_NAME = { E: "Easy", M: "Medium", H: "Hard" };
 
 let searchQuery = "";
 let vizOnly = false;
+let hideUnderstood = false;
+
+// --- "understood" progress, persisted in localStorage ---
+const UNDERSTOOD_KEY = "algoviz.understood.v1";
+function loadUnderstood() {
+  try { return new Set(JSON.parse(localStorage.getItem(UNDERSTOOD_KEY) || "[]")); }
+  catch { return new Set(); }
+}
+const understood = loadUnderstood();
+function saveUnderstood() {
+  try { localStorage.setItem(UNDERSTOOD_KEY, JSON.stringify([...understood])); } catch { /* storage disabled */ }
+}
+function isUnderstood(slug) { return understood.has(slug); }
+function toggleUnderstood(slug, val) {
+  const on = val === undefined ? !understood.has(slug) : val;
+  if (on) understood.add(slug); else understood.delete(slug);
+  saveUnderstood();
+  return on;
+}
 
 function homePage() {
   const total = Object.keys(PROBLEMS).length;
@@ -18,10 +37,12 @@ function homePage() {
         <div class="stat"><b>${total}</b> problems</div>
         <div class="stat"><b>${DATA.length}</b> categories</div>
         <div class="stat"><b>${vizCount}</b> interactive visualizations</div>
+        <div class="stat progress-stat"><b id="understood-count">${understood.size}</b> understood</div>
       </div>
       <div class="toolbar">
         <input class="search" id="search" placeholder="Search problems… (e.g. two sum, stack)" value="${esc(searchQuery)}">
         <label class="toggle"><input type="checkbox" id="vizonly" ${vizOnly ? "checked" : ""}> Interactive only</label>
+        <label class="toggle"><input type="checkbox" id="hideund" ${hideUnderstood ? "checked" : ""}> Hide understood</label>
       </div>
     </section>
     <div id="lists"></div>`;
@@ -33,6 +54,21 @@ function homePage() {
     vizOnly = e.target.checked;
     renderLists();
   });
+  document.getElementById("hideund").addEventListener("change", e => {
+    hideUnderstood = e.target.checked;
+    renderLists();
+  });
+  // Toggle "understood" straight from a card without navigating to it.
+  document.getElementById("lists").addEventListener("click", e => {
+    const box = e.target.closest(".card-check");
+    if (!box) return;
+    e.preventDefault();
+    e.stopPropagation();
+    toggleUnderstood(box.dataset.slug);
+    const countEl = document.getElementById("understood-count");
+    if (countEl) countEl.textContent = understood.size;
+    renderLists();
+  });
   renderLists();
 }
 
@@ -41,6 +77,7 @@ function renderLists() {
   const html = DATA.map(([cat, items]) => {
     const filtered = items.filter(([slug, title, , approach]) => {
       if (vizOnly && !VIS[slug]) return false;
+      if (hideUnderstood && isUnderstood(slug)) return false;
       if (!q) return true;
       return (title + " " + cat + " " + approach + " " + (STATEMENTS[slug] || "")).toLowerCase().includes(q);
     });
@@ -48,15 +85,19 @@ function renderLists() {
     return `<section class="cat">
       <h2>${esc(cat)} <em>${filtered.length}</em></h2>
       <div class="grid">
-        ${filtered.map(([slug, title, diff]) => `
-          <a class="card" href="#/p/${slug}">
+        ${filtered.map(([slug, title, diff]) => {
+          const done = isUnderstood(slug);
+          return `<a class="card${done ? " understood" : ""}" href="#/p/${slug}">
             <div class="row1">
               <div class="title">${esc(title)}</div>
               ${VIS[slug] ? `<span class="badge viz">▶ interactive</span>` : ""}
               <span class="badge ${diff}">${DIFF_NAME[diff]}</span>
+              <button type="button" class="card-check${done ? " on" : ""}" data-slug="${slug}"
+                role="checkbox" aria-checked="${done}" title="${done ? "Understood — click to unmark" : "Mark as understood"}">✓</button>
             </div>
             <div class="approach">${esc(STATEMENTS[slug] || "")}</div>
-          </a>`).join("")}
+          </a>`;
+        }).join("")}
       </div>
     </section>`;
   }).join("");
@@ -117,6 +158,11 @@ function problemPage(slug) {
       <span class="cat-badge">${esc(p.cat)}</span>
       <a class="lc-link" href="https://leetcode.com/problems/${p.slug}/" target="_blank" rel="noopener">View on LeetCode ↗</a>
     </div>
+    <label class="understand-toggle${isUnderstood(slug) ? " on" : ""}" id="understand-toggle">
+      <input type="checkbox" id="understand-box" ${isUnderstood(slug) ? "checked" : ""}>
+      <span class="box"></span>
+      <span class="txt">${isUnderstood(slug) ? "You understand this solution" : "I understand this solution"}</span>
+    </label>
     ${STATEMENTS[p.slug] ? `<div class="panel">
       <h3>Problem</h3>
       <p class="big">${esc(STATEMENTS[p.slug])}</p>
@@ -130,6 +176,13 @@ function problemPage(slug) {
       </div>
     </div>`}
     <div id="vizroot"></div>`;
+  const box = document.getElementById("understand-box");
+  box.addEventListener("change", () => {
+    const on = toggleUnderstood(slug, box.checked);
+    const wrap = document.getElementById("understand-toggle");
+    wrap.classList.toggle("on", on);
+    wrap.querySelector(".txt").textContent = on ? "You understand this solution" : "I understand this solution";
+  });
   const root = document.getElementById("vizroot");
   if (VIS[slug]) {
     mountVariants(root, VIS[slug].variants || [VIS[slug]]);
