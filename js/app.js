@@ -82,8 +82,16 @@ function renderLists() {
       return (title + " " + cat + " " + approach + " " + (STATEMENTS[slug] || "")).toLowerCase().includes(q);
     });
     if (!filtered.length) return "";
+    const catTotal = items.length;
+    const catDone = items.reduce((n, [slug]) => n + (isUnderstood(slug) ? 1 : 0), 0);
+    const catPct = Math.round((catDone / catTotal) * 100);
     return `<section class="cat">
-      <h2>${esc(cat)} <em>${filtered.length}</em></h2>
+      <h2>${esc(cat)} <em>${filtered.length}</em>
+        <span class="cat-prog${catDone === catTotal ? " complete" : ""}" title="${catDone} of ${catTotal} understood">
+          <span class="cat-prog-track"><span class="cat-prog-fill" style="width:${catPct}%"></span></span>
+          ${catDone}/${catTotal} understood
+        </span>
+      </h2>
       <div class="grid">
         ${filtered.map(([slug, title, diff]) => {
           const done = isUnderstood(slug);
