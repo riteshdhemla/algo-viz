@@ -367,3 +367,300 @@ APPROACHES["coin-change"] = [
     return dp[amount] if dp[amount] != float("inf") else -1`,
   },
 ];
+
+APPROACHES["two-sum"] = [
+  {
+    name: "Brute force — check every pair",
+    time: "O(n²)", space: "O(1)",
+    idea: [
+      "You need two numbers that add to target, so try all pairs: for each i, scan every later j and test nums[i] + nums[j].",
+      "It works, but for each element you re-scan the rest of the array looking for one specific value — target − nums[i]. Searching for a specific value is exactly what a hash map does in O(1).",
+    ],
+    code: `def twoSum(nums, target):
+    for i in range(len(nums)):
+        for j in range(i + 1, len(nums)):
+            if nums[i] + nums[j] == target:
+                return [i, j]`,
+  },
+  {
+    name: "One pass with a hash map",
+    time: "O(n)", space: "O(n)",
+    idea: [
+      "Reframe the inner loop as a lookup: as you pass each number, its complement is target − n. If you've already seen that complement, you've found the pair.",
+      "Store each number's index in a map as you go, and check for the complement before storing. One pass, because by the time the second member of a pair arrives, the first is already in the map.",
+    ],
+    code: `def twoSum(nums, target):
+    seen = {}                       # value -> index
+    for i, n in enumerate(nums):
+        if target - n in seen:
+            return [seen[target - n], i]
+        seen[n] = i`,
+  },
+];
+
+APPROACHES["longest-substring-without-repeating-characters"] = [
+  {
+    name: "Brute force — check every substring",
+    time: "O(n³)", space: "O(n)",
+    idea: [
+      "Generate every substring and test whether it has all distinct characters; keep the longest that passes. There are O(n²) substrings and each uniqueness check is O(n).",
+      "The waste: when a substring fails because of a repeat, we throw away everything and restart, even though most of the work carries over. A moving window fixes exactly that.",
+    ],
+    code: `def lengthOfLongestSubstring(s):
+    best = 0
+    for i in range(len(s)):
+        for j in range(i, len(s)):
+            if len(set(s[i:j + 1])) == j - i + 1:
+                best = max(best, j - i + 1)
+    return best`,
+  },
+  {
+    name: "Sliding window",
+    time: "O(n)", space: "O(min(n, alphabet))",
+    idea: [
+      "Keep a window [l, r] that always holds distinct characters, tracked in a set. Extend r one step at a time. When the new character is already inside, shrink from the left — dropping characters — until the duplicate is gone.",
+      "Each pointer only ever moves forward, so every character enters and leaves the window at most once: O(n) total. The window never rebuilds from scratch; that reuse of work is what collapses the cubic brute force to linear.",
+    ],
+    code: `def lengthOfLongestSubstring(s):
+    seen = set()
+    l = best = 0
+    for r in range(len(s)):
+        while s[r] in seen:
+            seen.remove(s[l])
+            l += 1
+        seen.add(s[r])
+        best = max(best, r - l + 1)
+    return best`,
+  },
+];
+
+APPROACHES["3sum"] = [
+  {
+    name: "Brute force — every triplet",
+    time: "O(n³)", space: "O(1)",
+    idea: [
+      "Three nested loops over all triplets, keep those summing to zero, dedupe at the end. Correct but cubic, and deduping is fiddly.",
+      "The fix leans on a tool you already have: once the first number is fixed, finding two more that hit a target is just Two Sum — and Two Sum is fast on a SORTED array.",
+    ],
+    code: `def threeSum(nums):
+    res = set()
+    n = len(nums)
+    for i in range(n):
+        for j in range(i + 1, n):
+            for k in range(j + 1, n):
+                if nums[i] + nums[j] + nums[k] == 0:
+                    res.add(tuple(sorted((nums[i], nums[j], nums[k]))))
+    return [list(t) for t in res]`,
+  },
+  {
+    name: "Sort, then fix one + two pointers",
+    time: "O(n²)", space: "O(1)",
+    idea: [
+      "Sort the array first. Then fix each nums[i] and look for two numbers in the rest that sum to −nums[i] using the sorted-array Two Sum: a left and right pointer that move inward — too small, move left up; too big, move right down.",
+      "Sorting also makes dedup trivial: skip over equal values for both the fixed element and the pointers, so identical triplets are never generated in the first place. One O(n) two-pointer sweep per fixed element gives O(n²) overall.",
+    ],
+    code: `def threeSum(nums):
+    nums.sort()
+    res = []
+    for i in range(len(nums)):
+        if i > 0 and nums[i] == nums[i - 1]:
+            continue                       # skip duplicate anchors
+        l, r = i + 1, len(nums) - 1
+        while l < r:
+            s = nums[i] + nums[l] + nums[r]
+            if s < 0:   l += 1
+            elif s > 0: r -= 1
+            else:
+                res.append([nums[i], nums[l], nums[r]])
+                l += 1
+                while l < r and nums[l] == nums[l - 1]:
+                    l += 1                 # skip duplicate pairs
+    return res`,
+  },
+];
+
+APPROACHES["container-with-most-water"] = [
+  {
+    name: "Brute force — every pair of lines",
+    time: "O(n²)", space: "O(1)",
+    idea: [
+      "Area between lines i and j is width (j − i) × height min(h[i], h[j]). Try all pairs and keep the max.",
+      "Quadratic. The improvement comes from realizing which end is worth moving: the shorter line is what caps the area, so keeping it can never help.",
+    ],
+    code: `def maxArea(height):
+    best = 0
+    for i in range(len(height)):
+        for j in range(i + 1, len(height)):
+            best = max(best, (j - i) * min(height[i], height[j]))
+    return best`,
+  },
+  {
+    name: "Two pointers from the ends",
+    time: "O(n)", space: "O(1)",
+    idea: [
+      "Start with the widest possible container: one pointer at each end. The area is limited by the shorter wall, so move THAT pointer inward — moving the taller one only loses width while the same short wall still caps the height, so it can never improve.",
+      "Every step discards a wall that provably can't be part of a better container, so a single inward sweep is enough. Same 'the weaker side is the binding constraint, advance it' logic as Trapping Rain Water.",
+    ],
+    code: `def maxArea(height):
+    l, r = 0, len(height) - 1
+    best = 0
+    while l < r:
+        best = max(best, (r - l) * min(height[l], height[r]))
+        if height[l] < height[r]:
+            l += 1        # short wall caps us — abandon it
+        else:
+            r -= 1
+    return best`,
+  },
+];
+
+APPROACHES["kth-largest-element-in-an-array"] = [
+  {
+    name: "Sort and index",
+    time: "O(n log n)", space: "O(1)",
+    idea: [
+      "Sort the array and read the k-th largest directly. Simple and often perfectly fine in practice.",
+      "But it fully orders the array when we only care about ONE position. Two ways to do less: keep just the k largest in a heap, or partition toward the exact index.",
+    ],
+    code: `def findKthLargest(nums, k):
+    nums.sort()
+    return nums[-k]`,
+  },
+  {
+    name: "Min-heap of size k",
+    time: "O(n log k)", space: "O(k)",
+    idea: [
+      "Maintain a min-heap holding only the k largest seen so far. Push each number; if the heap exceeds k, pop the smallest. The root is then always the k-th largest.",
+      "You never sort the losers — anything that falls out of the top k is discarded in O(log k). Great when k is small or the data streams in.",
+    ],
+    code: `import heapq
+
+def findKthLargest(nums, k):
+    heap = []
+    for n in nums:
+        heapq.heappush(heap, n)
+        if len(heap) > k:
+            heapq.heappop(heap)
+    return heap[0]`,
+  },
+  {
+    name: "Quickselect — average O(n)",
+    time: "O(n) average", space: "O(1)",
+    idea: [
+      "The k-th largest sits at a fixed index (n − k) in the sorted order. Quickselect finds that one index without sorting: partition around a pivot, and recurse into ONLY the side that contains the target index — the other half is thrown away untouched.",
+      "Each partition is linear and the problem roughly halves each round, giving n + n/2 + n/4 + … ≈ O(n) on average. It's quicksort that only ever follows one branch.",
+    ],
+    code: `def findKthLargest(nums, k):
+    target = len(nums) - k
+    def select(lo, hi):
+        pivot, p = nums[hi], lo
+        for i in range(lo, hi):
+            if nums[i] <= pivot:
+                nums[i], nums[p] = nums[p], nums[i]
+                p += 1
+        nums[p], nums[hi] = nums[hi], nums[p]
+        if   p < target: return select(p + 1, hi)
+        elif p > target: return select(lo, p - 1)
+        return nums[p]
+    return select(0, len(nums) - 1)`,
+  },
+];
+
+APPROACHES["daily-temperatures"] = [
+  {
+    name: "Brute force — scan ahead for each day",
+    time: "O(n²)", space: "O(1)",
+    idea: [
+      "For each day, walk forward until you find a warmer temperature and record the gap. Straightforward, quadratic in the worst case (a long descending run).",
+      "The waste: colder days keep re-scanning the same stretch. A stack lets each warmer day resolve all the days waiting on it at once.",
+    ],
+    code: `def dailyTemperatures(temps):
+    res = [0] * len(temps)
+    for i in range(len(temps)):
+        for j in range(i + 1, len(temps)):
+            if temps[j] > temps[i]:
+                res[i] = j - i
+                break
+    return res`,
+  },
+  {
+    name: "Monotonic decreasing stack",
+    time: "O(n)", space: "O(n)",
+    idea: [
+      "Keep a stack of indices whose temperatures are still waiting for something warmer, in decreasing order. When today is warmer than the temperature at the stack's top, that day's answer is resolved — pop it and record the distance. Repeat until the top is warmer than today, then push today.",
+      "Each index is pushed once and popped once, so the whole thing is O(n). A warm day settling several colder days in one shot is what removes the repeated forward scans.",
+    ],
+    code: `def dailyTemperatures(temps):
+    res = [0] * len(temps)
+    stack = []                    # indices, temps decreasing
+    for i, t in enumerate(temps):
+        while stack and temps[stack[-1]] < t:
+            j = stack.pop()
+            res[j] = i - j
+        stack.append(i)
+    return res`,
+  },
+];
+
+APPROACHES["climbing-stairs"] = [
+  {
+    name: "Recursion — branch at each step",
+    time: "O(2ⁿ)", space: "O(n)",
+    idea: [
+      "From step i you can take 1 or 2 steps, so ways(i) = ways(i+1) + ways(i+2). Written directly, it explores an exponential tree.",
+      "But ways(i) depends only on i, and the same i is recomputed through countless paths — the signature of overlapping subproblems that DP collapses. (This is literally Fibonacci in disguise.)",
+    ],
+    code: `def climbStairs(n):
+    def ways(i):
+        if i >= n:
+            return 1 if i == n else 0
+        return ways(i + 1) + ways(i + 2)
+    return ways(0)`,
+  },
+  {
+    name: "Two rolling variables",
+    time: "O(n)", space: "O(1)",
+    idea: [
+      "Fill the recurrence bottom-up instead of top-down. Each answer needs only the previous two, so carry them in two variables and slide forward — no array, no recursion stack.",
+      "The exponential tree becomes a single loop of n additions. Recognizing 'the state only reaches two steps back' is what licenses the O(1) space.",
+    ],
+    code: `def climbStairs(n):
+    a, b = 1, 1        # ways to reach the two steps below
+    for _ in range(n):
+        a, b = b, a + b
+    return a`,
+  },
+];
+
+APPROACHES["group-anagrams"] = [
+  {
+    name: "Sort each word as its key",
+    time: "O(n · k log k)", space: "O(n · k)",
+    idea: [
+      "Anagrams become identical once their letters are sorted, so sorting a word gives a canonical key. Bucket every word under its sorted form in a hash map.",
+      "Clean and correct; the only cost is sorting each length-k word. If k is large you can skip the sort entirely.",
+    ],
+    code: `def groupAnagrams(strs):
+    groups = {}
+    for w in strs:
+        key = "".join(sorted(w))
+        groups.setdefault(key, []).append(w)
+    return list(groups.values())`,
+  },
+  {
+    name: "Character-count key",
+    time: "O(n · k)", space: "O(n · k)",
+    idea: [
+      "Anagrams also share the same letter FREQUENCIES, so a 26-slot count tuple is an equally valid canonical key — and building it is linear in the word length, no sort needed.",
+      "Same bucketing idea, a faster key: trade the k log k sort for an O(k) count. A nice reminder that the 'signature' you group by can often be computed more cheaply than sorting.",
+    ],
+    code: `def groupAnagrams(strs):
+    groups = {}
+    for w in strs:
+        count = [0] * 26
+        for c in w:
+            count[ord(c) - ord("a")] += 1
+        groups.setdefault(tuple(count), []).append(w)
+    return list(groups.values())`,
+  },
+];
