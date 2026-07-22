@@ -7,7 +7,7 @@
 //   set   {t:'set',  label, v:[...], hl:{val:cls}}
 //   stack {t:'stack',label, v:[...], hl:{i:cls}}   (index 0 = bottom)
 //   vars  {t:'vars', entries:[[name,val],...], hl:{name:cls}}
-//   ll    {t:'ll',   v:[{val,dir:'R'|'L'|null}], ptrs:{i:...}}
+//   ll    {t:'ll',   v:[{val,dir:'R'|'L'|'B'|null}], ptrs:{i:...}}   ('B' = doubly linked ⇄)
 //   tree  {t:'tree', v:[15 values, null = absent], hl:{i:cls}}
 // cls: p (blue) g (green) r (red) y (yellow) w (window) d (dim)
 
@@ -95,10 +95,12 @@ function renderLL(c) {
   c.v.forEach((node, i) => {
     if (i > 0) {
       const prev = c.v[i - 1];
+      const prevR = prev.dir === "R" || prev.dir === "B";
+      const nodeL = node.dir === "L" || node.dir === "B";
       let g = "·", dim = " dim";
-      if (prev.dir === "R" && node.dir === "L") { g = "⇄"; dim = ""; }
-      else if (prev.dir === "R") { g = "→"; dim = ""; }
-      else if (node.dir === "L") { g = "←"; dim = ""; }
+      if (prevR && nodeL) { g = "⇄"; dim = ""; }
+      else if (prevR) { g = "→"; dim = ""; }
+      else if (nodeL) { g = "←"; dim = ""; }
       parts.push(`<div class="llgap${dim}">${g}</div>`);
     }
     const hl = (c.hl && c.hl[i]) ? " c-" + c.hl[i] : "";

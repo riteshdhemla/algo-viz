@@ -3984,59 +3984,100 @@ VIS["copy-list-with-random-pointer"] = {
 // ----------------------------------------------------------------- LRU Cache
 VIS["lru-cache"] = {
   inputs: [],
-  code: `class LRUCache:  # capacity 2 in this demo
+  code: `class Node:
+    def __init__(self, key, val):
+        self.key, self.val = key, val
+        self.prev = self.next = None
+
+class LRUCache:                       # capacity 2 in this demo
     def __init__(self, capacity):
         self.cap = capacity
-        self.cache = {}   # key -> list node
-        # doubly linked list keeps recency:
-        # left = least recent, right = most recent
+        self.map = {}                 # key -> Node
+        self.head, self.tail = Node(0, 0), Node(0, 0)
+        self.head.next = self.tail    # sentinels: head end = LRU,
+        self.tail.prev = self.head    #            tail end = MRU
+
+    def _remove(self, node):          # unlink in O(1)
+        node.prev.next = node.next
+        node.next.prev = node.prev
+
+    def _add_mru(self, node):         # splice in just before tail
+        node.prev, node.next = self.tail.prev, self.tail
+        self.tail.prev.next = node
+        self.tail.prev = node
 
     def get(self, key):
-        if key not in self.cache:
+        if key not in self.map:
             return -1
-        self._move_to_right(key)   # O(1) unlink+relink
-        return self.cache[key].val
+        node = self.map[key]
+        self._remove(node)            # move to MRU end
+        self._add_mru(node)
+        return node.val
 
     def put(self, key, value):
-        self.cache[key] = Node(key, value)
-        self._move_to_right(key)
-        if len(self.cache) > self.cap:
-            lru = self._leftmost()  # least recent
-            del self.cache[lru.key]`,
+        if key in self.map:
+            self._remove(self.map[key])
+        node = Node(key, value)
+        self.map[key] = node
+        self._add_mru(node)           # most recent
+        if len(self.map) > self.cap:
+            lru = self.head.next      # least recent
+            self._remove(lru)
+            del self.map[lru.key]`,
   gen() {
     const f = mkFrames();
     const cap = 2;
-    const cache = new Map(); // key -> value, insertion order = recency (left = LRU)
-    const C = hl => ({ t: "kv", label: "cache (map)", entries: [...cache.entries()].map(([k, v]) => [k, v]), hl });
-    const O = hl => ({ t: "arr", label: "recency (LRU → MRU)", v: cache.size ? [...cache.keys()] : ["·"], hl });
-    f.add(`Two structures, one job each: a hash map finds entries in O(1); a doubly linked list keeps them in recency order so eviction is also O(1).`, 3, [C(), O()]);
-    const touch = k => { const v = cache.get(k); cache.delete(k); cache.set(k, v); };
+    const map = new Map(); // key -> node
+    // Real doubly linked list with sentinels: head end = LRU, tail end = MRU.
+    const head = { key: "H", val: 0 }, tail = { key: "T", val: 0 };
+    head.next = tail; tail.prev = head;
+    const remove = n => { n.prev.next = n.next; n.next.prev = n.prev; };
+    const addMRU = n => { n.prev = tail.prev; n.next = tail; tail.prev.next = n; tail.prev = n; };
+    const moveMRU = n => { remove(n); addMRU(n); };
+    const order = () => { const out = []; let n = head.next; while (n !== tail) { out.push(n); n = n.next; } return out; };
+    const dispIdx = key => order().findIndex(n => n.key === key) + 1; // +1: index 0 is the head sentinel
+
+    const M = hl => ({ t: "kv", label: "map (key → node)", entries: [...map.keys()].map(k => [k, "node " + k]), hl: hl || {} });
+    const LL = hl => {
+      const cells = [{ val: "head", dir: "B" }, ...order().map(n => ({ val: n.key + ":" + n.val, dir: "B" })), { val: "tail", dir: "B" }];
+      return { t: "ll", label: "recency list (doubly linked)", v: cells, hl: hl || {}, ptrs: { 0: "LRU end", [cells.length - 1]: "MRU end" } };
+    };
+
+    f.add(`Two structures working together: a hash map for O(1) lookup, and a doubly linked list holding the same nodes in recency order. Head and tail are sentinels — the node after head is least-recent, the node before tail is most-recent. Its prev/next links let us unlink and relink any node in O(1).`, 12, [M(), LL()]);
+
     const ops = [
       ["put", 1, 1], ["put", 2, 2], ["get", 1], ["put", 3, 3], ["get", 2], ["put", 4, 4], ["get", 1], ["get", 3], ["get", 4],
     ];
     for (const [op, key, val] of ops) {
       if (op === "put") {
-        cache.set(key, val);
-        touch(key);
-        if (cache.size > cap) {
-          const lru = cache.keys().next().value;
-          f.add(`put(${key}, ${val}): insert as most-recent — over capacity! The leftmost (least recent) key ${lru} is evicted.`, 19,
-            [C({ [lru]: "r", [key]: "p" }), O({ 0: "r" })]);
-          cache.delete(lru);
+        if (map.has(key)) remove(map.get(key)); // update: drop the old node first
+        const node = { key, val, prev: null, next: null };
+        map.set(key, node);
+        addMRU(node);
+        if (map.size > cap) {
+          f.add(`put(${key}, ${val}): make a node and splice it in just before tail (most-recent). Size ${map.size} > capacity ${cap}, so we're over.`, 36,
+            [M({ [key]: "p" }), LL({ [dispIdx(key)]: "p" })]);
+          const lru = head.next;
+          remove(lru);
+          map.delete(lru.key);
+          f.add(`Evict head.next — key ${lru.key}, the least-recently-used node: unlink it from the list and delete it from the map. Both O(1).`, 40,
+            [M({ [lru.key]: "r" }), LL({ [dispIdx(key)]: "p" })]);
         } else {
-          f.add(`put(${key}, ${val}): store it and mark it most-recent (rightmost).`, 16, [C({ [key]: "p" }), O({ [cache.size - 1]: "p" })]);
+          f.add(`put(${key}, ${val}): make a node and splice it in just before tail — the most-recent position.`, 36,
+            [M({ [key]: "p" }), LL({ [dispIdx(key)]: "p" })]);
         }
       } else {
-        if (!cache.has(key)) {
-          f.add(`get(${key}): not in the map — return -1.`, 10, [C(), O()]);
+        if (!map.has(key)) {
+          f.add(`get(${key}): key not in the map — return -1.`, 25, [M(), LL()]);
         } else {
-          touch(key);
-          f.add(`get(${key}) → ${cache.get(key)}. Accessing it moves it to most-recent — the list re-links in O(1).`, 12,
-            [C({ [key]: "g" }), O({ [cache.size - 1]: "g" })]);
+          const node = map.get(key);
+          moveMRU(node);
+          f.add(`get(${key}) → ${node.val}. On access, unlink the node and re-add it before tail so it becomes most-recent — pure pointer surgery, O(1).`, 28,
+            [M({ [key]: "g" }), LL({ [dispIdx(key)]: "g" })]);
         }
       }
     }
-    f.add(`Every get and put ran in O(1): the map for lookup, the recency list for ordering and eviction.`, 12, [C(), O()], true);
+    f.add(`Every get and put touched only a handful of pointers — O(1) each. The map answers "where is it?", the doubly linked list answers "what's least recent?".`, 29, [M(), LL()], true);
     return f;
   },
 };
