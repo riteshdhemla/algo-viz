@@ -19,6 +19,17 @@ starting with the [NeetCode 150](https://neetcode.io/practice/practice/neetcode1
     interval timelines, and 2-D DP tables
   - editable inputs — run the algorithm on your own data
 - Search and "interactive only" filtering on the home page.
+- **Python data structures reference** (`#/python`) — 16 entries covering the built-in containers
+  (list, tuple, str, dict, set), the stdlib workhorses (deque, Counter, defaultdict, heapq, bisect,
+  functools/itertools), and the structures you write yourself (ListNode, TreeNode, Trie, Union-Find,
+  adjacency lists). Each one gives the per-operation cost, an idiomatic snippet, the gotchas that
+  quietly cost you a factor of n, and links to the problems that use it.
+- **Template patterns reference** (`#/patterns`) — 27 templates grouped by shape: two pointers,
+  sliding windows, prefix sums, monotonic stacks, both flavours of binary search, linked-list
+  rewiring, tree DFS/BFS, grid and graph traversal, topological sort, Dijkstra, heaps, intervals,
+  backtracking, greedy, 1-D and 2-D DP, and bit tricks. Each has the signals that should make you
+  reach for it, a copy-paste Python template, why it works, and the problems to practise it on.
+  Problem pages link back to the templates and structures they use.
 
 ## Running locally
 
@@ -52,11 +63,23 @@ advanced graphs, 1-D and 2-D DP, greedy, intervals, math & geometry, and bit man
 Everything lives in `js/`:
 
 - `data.js` — the 150-problem catalog (title, difficulty, approach, complexity).
+- `reference.js` — the Python data-structure (`PY_STRUCTS`) and template-pattern (`PY_PATTERNS`) reference.
 - `statements.js` — one-line problem statements for each problem.
 - `engine.js` — generic renderers (array, bars, map, set, stack, vars, linked list, tree, grid, interval timeline, 2-D DP table) and the playback engine.
 - `visualizers.js` — one entry per visualized problem: `VIS["<slug>"] = { inputs, code, gen }`,
   where `gen(...)` returns a list of frames `{ d: description, l: code line, c: [components] }`.
-- `app.js` — hash router and pages.
+- `app.js` — hash router and pages (`#/`, `#/p/<slug>`, `#/python[/<id>]`, `#/patterns[/<id>]`).
 
 To add a problem, write a `gen` function that runs the optimal algorithm while pushing a frame
 at each meaningful step — the engine handles all rendering and controls.
+
+## Adding a reference entry
+
+Append an entry to the right group in `js/reference.js`:
+
+- a data structure needs `{ id, name, tag, blurb, use, imports, ops, code, gotchas, problems }`,
+  where `ops` is a list of `[operation, complexity, note]`;
+- a pattern needs `{ id, name, signals, time, space, code, notes, problems }`.
+
+`problems` holds NeetCode slugs — they render as links, and each problem page automatically shows
+the entries that name it. The `id` is the deep-link anchor (`#/patterns/<id>`).
