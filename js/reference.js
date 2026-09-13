@@ -446,6 +446,186 @@ nums.sort(key=cmp_to_key(lambda a, b: (b + a > a + b) - (b + a < a + b)))`,
 },
 ]],
 
+["Sorted containers", [
+{
+  id: "sortedlist",
+  name: "sortedcontainers.SortedList",
+  tag: "sorted multiset",
+  blurb: "A sequence kept in sorted order with O(log n) insert and delete — and, unlike a heap, positional indexing, so you can read the min, the max, and the k-th element of the same live collection.",
+  use: "When the collection changes AND you need order statistics from it: the median of a stream, the max and min of a window, \"the smallest value above x\" as things come and go.",
+  imports: "from sortedcontainers import SortedList",
+  ops: [
+    ["SortedList(iterable)", "O(n log n)", "Or SortedList() and add as you go."],
+    ["sl.add(x)", "O(log n)", "Keeps the order. This is bisect.insort without the O(n) shift."],
+    ["sl.remove(x) / sl.discard(x)", "O(log n)", "Removes by VALUE. remove raises if absent, discard does not."],
+    ["sl[i], sl[0], sl[-1]", "O(log n)", "Positional indexing — the thing a heap can never give you."],
+    ["sl.bisect_left(x) / bisect_right(x)", "O(log n)", "Same semantics as the bisect module, on a live structure."],
+    ["x in sl, sl.index(x), sl.count(x)", "O(log n)", "count matters: this is a multiset, duplicates are kept."],
+    ["sl.pop(i)", "O(log n)", "Defaults to the last element."],
+    ["sl.irange(lo, hi)", "O(log n + k)", "Iterate just the values in a range, without slicing a copy."],
+    ["len(sl)", "O(1)", "Cached."],
+  ],
+  code: `from sortedcontainers import SortedList
+
+sl = SortedList([5, 1, 3])           # [1, 3, 5]
+sl.add(2)                            # [1, 2, 3, 5]
+sl.discard(3)                        # [1, 2, 5]   — no error if absent
+
+sl[0], sl[-1]                        # min and max, by position
+sl[len(sl) // 2]                     # the median, in O(log n)
+
+i = sl.bisect_left(4)                # first index with sl[i] >= 4
+list(sl.irange(2, 5))                # every value in [2, 5]
+
+# A window that needs BOTH ends: add on the right, remove by value on the left.
+def window_spreads(nums, k):
+    window, out = SortedList(), []
+    for r, n in enumerate(nums):
+        window.add(n)
+        if r >= k:
+            window.remove(nums[r - k])       # arbitrary removal — a heap cannot
+        if r >= k - 1:
+            out.append(window[-1] - window[0])   # max - min of the window
+    return out
+
+# Sort by a derived key with SortedList(key=...) -> a SortedKeyList.
+by_end = SortedList(intervals, key=lambda iv: iv[1])`,
+  gotchas: [
+    "sortedcontainers is NOT in the standard library. LeetCode's judge has it; a bare python3 does not, and some interviewers will not let you import it. Know the stdlib fallback below.",
+    "It is a multiset — SortedList([1, 1]) keeps both. Use SortedSet when you want uniqueness.",
+    "remove(x) deletes by value, not by index; pop(i) deletes by index. Mixing them up silently removes the wrong element.",
+    "Never mutate an object after inserting it in a way that changes its sort order — the tree invariant breaks and lookups start missing.",
+    "The O(log n) is real but the constant is a Python-level B-tree of lists. When a monotonic deque or a heap applies, it is still several times faster.",
+  ],
+  problems: ["sliding-window-maximum", "find-median-from-data-stream", "kth-largest-element-in-a-stream"],
+},
+{
+  id: "sorteddict",
+  name: "SortedDict / SortedSet",
+  tag: "sorted map · sorted set",
+  blurb: "The same B-tree, keyed. A dict whose keys stay in sorted order, and a set you can index and range-scan — the ordered map and ordered set that Python otherwise lacks.",
+  use: "Floor/ceiling lookups (\"the closest key at or below x\"), sweep lines over event times, and any place you would reach for C++ std::map or Java TreeMap.",
+  imports: "from sortedcontainers import SortedDict, SortedSet",
+  ops: [
+    ["sd[k] = v, del sd[k]", "O(log n)", "Ordinary dict syntax, order maintained."],
+    ["iterate sd", "O(n)", "Yields keys in SORTED order, not insertion order."],
+    ["sd.bisect_left(k) / bisect_right(k)", "O(log n)", "Index of a key in key order — the floor/ceiling primitive."],
+    ["sd.keys()[i], sd.peekitem(i)", "O(log n)", "Indexable views. peekitem(-1) is the largest key."],
+    ["sd.irange(lo, hi)", "O(log n + k)", "Keys within a range; irange_key on a SortedKeyList."],
+    ["sd.popitem(i)", "O(log n)", "Pop by position — index 0 for the smallest key."],
+    ["ss.add(x) / ss.discard(x) / ss[i]", "O(log n)", "SortedSet: unique, ordered, and indexable."],
+    ["ss | ss2, ss & ss2, ss - ss2", "O(n log n)", "Set algebra, result still sorted."],
+  ],
+  code: `from sortedcontainers import SortedDict, SortedSet
+
+sd = SortedDict({5: "e", 1: "a", 3: "c"})    # iterates keys 1, 3, 5
+
+# Floor / ceiling of a key that need not be present.
+i = sd.bisect_left(4)                        # 2 — the position in key order
+ceiling = sd.keys()[i] if i < len(sd) else None       # 5
+floor = sd.keys()[i - 1] if i else None               # 3
+
+k, v = sd.peekitem(-1)                       # largest key and its value
+list(sd.irange(2, 4))                        # [3] — keys inside [2, 4]
+
+# Sweep line: a sorted map of deltas gives concurrency at every event time.
+def max_concurrent(intervals):
+    delta = SortedDict()
+    for start, end in intervals:
+        delta[start] = delta.get(start, 0) + 1
+        delta[end] = delta.get(end, 0) - 1
+    live = peak = 0
+    for t in delta:                          # already in time order
+        live += delta[t]
+        peak = max(peak, live)
+    return peak
+
+ss = SortedSet([3, 1, 3])                    # SortedSet([1, 3]) — deduped
+ss[0], ss.bisect_left(2), list(ss.irange(1, 3))`,
+  gotchas: [
+    "A plain dict is INSERTION-ordered, not key-sorted, and so is OrderedDict. If you need keys in sorted order you need this, or a list you re-sort.",
+    "SortedSet drops duplicates, so it cannot answer \"how many copies of x\" — that is SortedList's job.",
+    "peekitem(i) takes a position, not a key. peekitem(0) is the smallest; there is no peekitem(key).",
+    "Deleting a key while iterating a view mutates the view underneath you — snapshot with list(sd) first.",
+  ],
+  problems: ["time-based-key-value-store", "meeting-rooms-ii", "minimum-interval-to-include-each-query"],
+},
+{
+  id: "ordered-fallbacks",
+  name: "Stdlib fallbacks for ordered data",
+  tag: "bisect · heap · Fenwick",
+  blurb: "sortedcontainers ships with no Python. These three cover nearly everything it does using only the standard library — and one of them is what the interviewer is actually asking for.",
+  use: "Any time you would reach for a SortedList but cannot import one: pick by which operations you actually need.",
+  imports: "from bisect import bisect_left, insort\nimport heapq\nfrom collections import Counter",
+  ops: [
+    ["sorted list + insort", "O(log n) search, O(n) insert", "The memmove is C-speed, so this beats a Python B-tree up to roughly 10⁴–10⁵ inserts."],
+    ["heap + lazy deletion", "O(log n) amortized", "Arbitrary removal, deferred until the element reaches the top."],
+    ["two heaps", "O(log n) add, O(1) median", "When the only order statistic you need is a fixed rank."],
+    ["Fenwick tree (BIT)", "O(log n)", "Counts, ranks, and k-th smallest over a compressed value range."],
+    ["sorted() once, then scan", "O(n log n)", "The best answer whenever the collection does not actually change."],
+  ],
+  code: `# 1. Sorted list + bisect — simplest, and fast enough far more often than you expect.
+from bisect import bisect_left, insort
+arr = []
+insort(arr, x)                       # O(n) shift, tiny constant
+i = bisect_left(arr, target)
+
+# 2. Heap + lazy deletion — arbitrary removal without a tree.
+import heapq
+from collections import Counter
+
+class LazyHeap:
+    def __init__(self):
+        self.heap, self.pending = [], Counter()
+
+    def push(self, x):
+        heapq.heappush(self.heap, x)
+
+    def remove(self, x):             # O(1) now; paid for at the top later
+        self.pending[x] += 1
+
+    def top(self):
+        while self.heap and self.pending[self.heap[0]]:
+            self.pending[self.heap[0]] -= 1
+            heapq.heappop(self.heap)
+        return self.heap[0] if self.heap else None
+
+# 3. Fenwick tree over compressed values — ranks and k-th smallest.
+class BIT:
+    def __init__(self, n):
+        self.n = n
+        self.tree = [0] * (n + 1)
+
+    def add(self, i, delta=1):       # i is 1-based
+        while i <= self.n:
+            self.tree[i] += delta
+            i += i & -i
+
+    def prefix(self, i):             # how many stored values are <= i
+        total = 0
+        while i > 0:
+            total += self.tree[i]
+            i -= i & -i
+        return total
+
+    def kth(self, k):                # smallest i with prefix(i) >= k
+        pos, step = 0, 1 << self.n.bit_length()
+        while step:
+            nxt = pos + step
+            if nxt <= self.n and self.tree[nxt] < k:
+                pos, k = nxt, k - self.tree[nxt]
+            step >>= 1
+        return pos + 1`,
+  gotchas: [
+    "Check the constraints before assuming insort is too slow: n ≤ 10⁴ with an O(n) insert is 10⁸ byte-moves in C, which runs in well under a second.",
+    "Lazy deletion only cleans the top, so the heap keeps every stale entry in memory. Bound it by also tracking a live count if the churn is large.",
+    "A Fenwick tree indexes by VALUE, not by position, so large or sparse values need coordinate compression first (sorted(set(values)) and a value → rank dict).",
+    "BIT indices are 1-based. Using 0 makes add loop forever, since 0 + (0 & -0) is 0.",
+  ],
+  problems: ["find-median-from-data-stream", "sliding-window-maximum", "kth-largest-element-in-an-array"],
+},
+]],
+
 ["Structures you write yourself", [
 {
   id: "listnode",
@@ -1261,6 +1441,54 @@ def median():
     "Same shape solves \"IPO\"-style problems: one heap for what is available, one for what is affordable.",
   ],
   problems: ["find-median-from-data-stream"],
+},
+{
+  id: "ordered-window",
+  name: "Ordered multiset over a sliding window",
+  signals: ["\"the max and the min of every window\"", "\"the k-th smallest as elements come and go\"", "you must remove an ARBITRARY element, not just the extreme"],
+  time: "O(n log k)", space: "O(k)",
+  code: `from sortedcontainers import SortedList
+
+# Longest subarray where max - min <= limit.
+def longest_window(nums, limit):
+    window = SortedList()
+    best = l = 0
+    for r, n in enumerate(nums):
+        window.add(n)
+        while window[-1] - window[0] > limit:
+            window.remove(nums[l])           # by value, not by index
+            l += 1
+        best = max(best, r - l + 1)
+    return best
+
+# Stdlib version: one monotonic deque per extreme. O(n), no third-party import.
+from collections import deque
+
+def longest_window_stdlib(nums, limit):
+    maxq, minq = deque(), deque()            # decreasing / increasing indices
+    best = l = 0
+    for r, n in enumerate(nums):
+        while maxq and nums[maxq[-1]] < n:
+            maxq.pop()
+        while minq and nums[minq[-1]] > n:
+            minq.pop()
+        maxq.append(r)
+        minq.append(r)
+        while nums[maxq[0]] - nums[minq[0]] > limit:
+            if maxq[0] == l:
+                maxq.popleft()
+            if minq[0] == l:
+                minq.popleft()
+            l += 1
+        best = max(best, r - l + 1)
+    return best`,
+  notes: [
+    "Reach for an ordered multiset only when a heap genuinely will not do — that is, when you need to delete an element that is not at the top, or read a rank other than the extreme.",
+    "If you need exactly one extreme per window, a monotonic deque is O(n) and beats this; two deques cover max AND min at the same cost.",
+    "Removal is by value, so a multiset is required: two equal values in the window must delete one occurrence, not both.",
+    "State the dependency out loud in an interview. SortedList is on LeetCode's judge but is third-party, so have the deque or two-heap answer ready.",
+  ],
+  problems: ["sliding-window-maximum", "find-median-from-data-stream", "longest-repeating-character-replacement"],
 },
 {
   id: "intervals",

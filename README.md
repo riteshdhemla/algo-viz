@@ -19,15 +19,17 @@ starting with the [NeetCode 150](https://neetcode.io/practice/practice/neetcode1
     interval timelines, and 2-D DP tables
   - editable inputs — run the algorithm on your own data
 - Search and "interactive only" filtering on the home page.
-- **Python data structures reference** (`#/python`) — 16 entries covering the built-in containers
+- **Python data structures reference** (`#/python`) — 19 entries covering the built-in containers
   (list, tuple, str, dict, set), the stdlib workhorses (deque, Counter, defaultdict, heapq, bisect,
-  functools/itertools), and the structures you write yourself (ListNode, TreeNode, Trie, Union-Find,
-  adjacency lists). Each one gives the per-operation cost, an idiomatic snippet, the gotchas that
-  quietly cost you a factor of n, and links to the problems that use it.
-- **Template patterns reference** (`#/patterns`) — 27 templates grouped by shape: two pointers,
+  functools/itertools), the sorted containers (`SortedList`, `SortedDict`/`SortedSet`, and the
+  stdlib fallbacks — bisect, lazy-deletion heaps, Fenwick trees — for when you cannot import them),
+  and the structures you write yourself (ListNode, TreeNode, Trie, Union-Find, adjacency lists).
+  Each one gives the per-operation cost, an idiomatic snippet, the gotchas that quietly cost you a
+  factor of n, and links to the problems that use it.
+- **Template patterns reference** (`#/patterns`) — 28 templates grouped by shape: two pointers,
   sliding windows, prefix sums, monotonic stacks, both flavours of binary search, linked-list
-  rewiring, tree DFS/BFS, grid and graph traversal, topological sort, Dijkstra, heaps, intervals,
-  backtracking, greedy, 1-D and 2-D DP, and bit tricks. Each has the signals that should make you
+  rewiring, tree DFS/BFS, grid and graph traversal, topological sort, Dijkstra, heaps, ordered
+  multisets, intervals, backtracking, greedy, 1-D and 2-D DP, and bit tricks. Each has the signals that should make you
   reach for it, a copy-paste Python template, why it works, and the problems to practise it on.
   Problem pages link back to the templates and structures they use.
 
