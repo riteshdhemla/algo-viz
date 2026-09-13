@@ -65,6 +65,16 @@ function homePage() {
         <div class="stat"><b>${vizCount}</b> interactive visualizations</div>
         <div class="stat progress-stat"><b id="understood-count">${understood.size}</b> understood</div>
       </div>
+      <div class="ref-links">
+        <a class="ref-link" href="#/python">
+          <b>🐍 Python data structures</b>
+          <span>list, dict, set, deque, heapq, Counter, Trie, Union-Find — costs, idioms, and gotchas.</span>
+        </a>
+        <a class="ref-link" href="#/patterns">
+          <b>🧩 Template patterns</b>
+          <span>Sliding window, binary search on the answer, topological sort, backtracking, DP — the shapes these 150 problems collapse into.</span>
+        </a>
+      </div>
       <div class="toolbar">
         <input class="search" id="search" placeholder="Search problems… (e.g. two sum, stack)" value="${esc(searchQuery)}">
         <label class="toggle"><input type="checkbox" id="vizonly" ${vizOnly ? "checked" : ""}> Interactive only</label>
@@ -211,6 +221,7 @@ function problemPage(slug) {
         <div>Space<code>${esc(p.space)}</code></div>
       </div>
     </div>`}
+    ${refsSection(slug)}
     <div id="vizroot"></div>`;
   const box = document.getElementById("understand-box");
   box.addEventListener("change", () => {
@@ -228,11 +239,205 @@ function problemPage(slug) {
   }
 }
 
+// --- Python reference: data structures + template patterns ---------------
+const REF_KINDS = {
+  python: {
+    data: () => PY_STRUCTS,
+    title: "Python data structures",
+    sub: "The containers you actually reach for in an interview — what each one costs, when it is the right call, and the mistakes that quietly cost you the O(n).",
+  },
+  patterns: {
+    data: () => PY_PATTERNS,
+    title: "Template patterns",
+    sub: "The recurring shapes the 150 problems collapse into. Learn to recognize the signal, then write the template from memory.",
+  },
+};
+
+const refQuery = { python: "", patterns: "" };
+
+function refItemMatches(it, q) {
+  if (!q) return true;
+  const hay = [
+    it.name, it.tag, it.blurb, it.use, it.code, it.imports,
+    (it.signals || []).join(" "),
+    (it.notes || []).join(" "),
+    (it.gotchas || []).join(" "),
+    (it.ops || []).map(o => o.join(" ")).join(" "),
+    (it.problems || []).map(s => (PROBLEMS[s] ? PROBLEMS[s].title : s)).join(" "),
+  ].join(" ").toLowerCase();
+  return hay.includes(q);
+}
+
+function codeBlock(code) {
+  return `<div class="codeblock">
+    <button type="button" class="copy-btn" title="Copy to clipboard">Copy</button>
+    <pre class="pycode">${esc(code)}</pre>
+  </div>`;
+}
+
+function relatedProblems(slugs) {
+  if (!slugs || !slugs.length) return "";
+  const links = slugs.filter(s => PROBLEMS[s]).map(s =>
+    `<a class="chip prob" href="#/p/${s}">${esc(PROBLEMS[s].title)}</a>`).join("");
+  if (!links) return "";
+  return `<div class="rc-rel"><span class="rc-rel-h">Practice</span>${links}</div>`;
+}
+
+function structCard(it, open) {
+  const ops = (it.ops || []).map(([op, cx, note]) => `<tr>
+      <td class="op"><code>${esc(op)}</code></td>
+      <td class="opcx">${esc(cx)}</td>
+      <td class="opnote">${esc(note)}</td>
+    </tr>`).join("");
+  return `<details class="ref-card" id="ref-${it.id}"${open ? " open" : ""}>
+    <summary>
+      <span class="rc-name">${esc(it.name)}</span>
+      <span class="rc-tag">${esc(it.tag)}</span>
+      <span class="rc-blurb">${esc(it.blurb)}</span>
+    </summary>
+    <div class="rc-body">
+      <p class="rc-use"><b>Reach for it when:</b> ${esc(it.use)}</p>
+      ${it.imports ? `<pre class="rc-import">${esc(it.imports)}</pre>` : ""}
+      ${ops ? `<div class="ops-wrap"><table class="ops">
+        <thead><tr><th>Operation</th><th>Cost</th><th></th></tr></thead>
+        <tbody>${ops}</tbody></table></div>` : ""}
+      ${codeBlock(it.code)}
+      ${(it.gotchas || []).length ? `<div class="rc-gotchas">
+        <h4>Gotchas</h4>
+        <ul>${it.gotchas.map(g => `<li>${esc(g)}</li>`).join("")}</ul>
+      </div>` : ""}
+      ${relatedProblems(it.problems)}
+    </div>
+  </details>`;
+}
+
+function patternCard(it, open) {
+  return `<details class="ref-card" id="ref-${it.id}"${open ? " open" : ""}>
+    <summary>
+      <span class="rc-name">${esc(it.name)}</span>
+      <span class="rc-tag cx">${esc(it.time)} · ${esc(it.space)}</span>
+      <span class="rc-blurb">${esc((it.signals || [])[0] || "")}</span>
+    </summary>
+    <div class="rc-body">
+      <div class="rc-signals">
+        <span class="rc-rel-h">You see</span>
+        ${(it.signals || []).map(s => `<span class="chip sig">${esc(s)}</span>`).join("")}
+      </div>
+      ${codeBlock(it.code)}
+      ${(it.notes || []).length ? `<div class="rc-notes">
+        <h4>Why it works / what to watch</h4>
+        <ul>${it.notes.map(n => `<li>${esc(n)}</li>`).join("")}</ul>
+      </div>` : ""}
+      ${relatedProblems(it.problems)}
+    </div>
+  </details>`;
+}
+
+// Reverse index: problem slug -> reference entries that name it.
+let refByProblem = null;
+function refsForProblem(slug) {
+  if (!refByProblem) {
+    refByProblem = {};
+    const add = (kind, it) => (it.problems || []).forEach(s => {
+      (refByProblem[s] = refByProblem[s] || []).push({ kind, id: it.id, name: it.name });
+    });
+    PY_PATTERNS.forEach(([, items]) => items.forEach(it => add("patterns", it)));
+    PY_STRUCTS.forEach(([, items]) => items.forEach(it => add("python", it)));
+  }
+  return refByProblem[slug] || [];
+}
+
+function refsSection(slug) {
+  const refs = refsForProblem(slug);
+  if (!refs.length) return "";
+  return `<div class="prob-refs">
+    <span class="rc-rel-h">Templates &amp; structures</span>
+    ${refs.map(r => `<a class="chip ${r.kind === "patterns" ? "pat" : "ds"}" href="#/${r.kind}/${r.id}">${esc(r.name)}</a>`).join("")}
+  </div>`;
+}
+
+function referencePage(kind, focusId) {
+  const meta = REF_KINDS[kind];
+  const groups = meta.data();
+  const total = groups.reduce((n, [, items]) => n + items.length, 0);
+  app.innerHTML = `
+    <a class="back" href="#/">← All problems</a>
+    <section class="hero">
+      <h1>${esc(meta.title)}</h1>
+      <p>${esc(meta.sub)}</p>
+      <div class="ref-switch">
+        <a class="variant-tab${kind === "python" ? " active" : ""}" href="#/python">Data structures</a>
+        <a class="variant-tab${kind === "patterns" ? " active" : ""}" href="#/patterns">Template patterns</a>
+      </div>
+      <div class="toolbar">
+        <input class="search" id="refsearch" placeholder="Search ${total} entries… (e.g. heap, sliding window, O(1))" value="${esc(refQuery[kind])}">
+        <button type="button" class="btn" id="expand-all">Expand all</button>
+        <button type="button" class="btn" id="collapse-all">Collapse all</button>
+      </div>
+    </section>
+    <div class="ref-jump">${groups.map(([g]) =>
+      `<button type="button" class="chip jump" data-grp="grp-${slugify(g)}">${esc(g)}</button>`).join("")}</div>
+    <div id="reflists"></div>`;
+
+  const render = () => {
+    const q = refQuery[kind].trim().toLowerCase();
+    const html = groups.map(([group, items]) => {
+      const shown = items.filter(it => refItemMatches(it, q));
+      if (!shown.length) return "";
+      return `<section class="refgroup" id="grp-${slugify(group)}">
+        <h2>${esc(group)} <em>${shown.length}</em></h2>
+        ${shown.map(it => {
+          const open = !!q || it.id === focusId;
+          return kind === "python" ? structCard(it, open) : patternCard(it, open);
+        }).join("")}
+      </section>`;
+    }).join("");
+    document.getElementById("reflists").innerHTML =
+      html || `<div class="no-results">Nothing matches “${esc(refQuery[kind])}”.</div>`;
+    if (focusId) {
+      const el = document.getElementById("ref-" + focusId);
+      if (el) el.scrollIntoView({ block: "start" });
+    }
+  };
+  render();
+
+  document.getElementById("refsearch").addEventListener("input", e => {
+    refQuery[kind] = e.target.value;
+    focusId = null;
+    render();
+  });
+  document.querySelector(".ref-jump").addEventListener("click", e => {
+    const chip = e.target.closest(".chip.jump");
+    if (!chip) return;
+    const sec = document.getElementById(chip.dataset.grp);
+    if (sec) sec.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+  const setAll = open => document.querySelectorAll("#reflists .ref-card").forEach(d => { d.open = open; });
+  document.getElementById("expand-all").addEventListener("click", () => setAll(true));
+  document.getElementById("collapse-all").addEventListener("click", () => setAll(false));
+
+  document.getElementById("reflists").addEventListener("click", e => {
+    const btn = e.target.closest(".copy-btn");
+    if (!btn) return;
+    const code = btn.parentElement.querySelector("pre").textContent;
+    navigator.clipboard?.writeText(code).then(() => {
+      btn.textContent = "Copied";
+      setTimeout(() => { btn.textContent = "Copy"; }, 1200);
+    }).catch(() => { btn.textContent = "Press ⌘C"; });
+  });
+}
+
+function slugify(s) {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
+
 function route() {
   const hash = location.hash || "#/";
   const m = hash.match(/^#\/p\/([a-z0-9-]+)/);
+  const ref = hash.match(/^#\/(python|patterns)(?:\/([a-z0-9-]+))?/);
   window.scrollTo(0, 0);
   if (m) problemPage(m[1]);
+  else if (ref) referencePage(ref[1], ref[2] || null);
   else homePage();
 }
 
