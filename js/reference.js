@@ -403,12 +403,66 @@ lis = len(tails)`,
   problems: ["longest-increasing-subsequence", "time-based-key-value-store", "search-a-2d-matrix"],
 },
 {
+  id: "sort-comparator",
+  name: "sorted() / .sort() with a custom comparator",
+  tag: "key= vs cmp_to_key",
+  blurb: "Python's sort takes a key function, not a comparator. For anything that isn't \"compute one value per item and compare those,\" wrap a pairwise comparator with functools.cmp_to_key.",
+  use: "Multi-field ordering, sorting by a derived value, and orderings only expressible as a pairwise rule — e.g. which of a+b or b+a should come first.",
+  imports: "from functools import cmp_to_key",
+  ops: [
+    ["a.sort(key=f), sorted(a, key=f)", "O(n log n)", "f runs once per element and is cached — the fast, preferred form."],
+    ["reverse=True", "O(n log n)", "Reverses the FINAL order; safer than trying to negate every key by hand."],
+    ["key=lambda x: (a, -b, c)", "O(n log n)", "Multi-key sort: tuples compare left to right, so negate just the numeric fields to mix asc/desc."],
+    ["cmp_to_key(cmp)", "O(1) wrap", "cmp(a, b) returns negative / zero / positive; wrap it once and pass the wrapper as key=."],
+    ["sort() vs sorted()", "in place vs copy", "sort() mutates and returns None; sorted() returns a new list — never chain a.sort().anything()."],
+    ["stability", "guaranteed", "Timsort is stable: equal keys keep input order — sort by the minor key, then a second stable sort by the major key."],
+  ],
+  code: `# Preferred: reduce the ordering to a key, sort once — O(n) key calls.
+words.sort(key=len)                           # ascending by length
+people.sort(key=lambda p: (-p.score, p.name)) # score desc, then name asc
+
+# A comparator ONLY when no numeric key exists — e.g. "which concatenation
+# is bigger": '9' + '34' vs '34' + '9' (LeetCode's Largest Number).
+from functools import cmp_to_key
+
+def compare(a, b):
+    if a + b > b + a:
+        return -1                  # a should sort before b
+    if a + b < b + a:
+        return 1
+    return 0
+
+nums = ["3", "30", "34", "5", "9"]
+nums.sort(key=cmp_to_key(compare))
+result = "".join(nums)             # "9534330"
+
+# Stability lets you compose two sorts instead of one compound key.
+rows.sort(key=lambda r: r.name)               # minor key first
+rows.sort(key=lambda r: r.dept)               # stable: ties keep name order
+
+# Sorting objects directly: implement __lt__ once instead of writing key=.
+class Interval:
+    def __init__(self, start, end):
+        self.start, self.end = start, end
+    def __lt__(self, other):
+        return self.start < other.start
+
+intervals.sort()                   # uses Interval.__lt__`,
+  gotchas: [
+    "Reach for cmp_to_key last. Almost every comparator can be rewritten as a key function, and key= is faster — it calls f(x) O(n) times, while a comparator is called O(n log n) times, once per comparison.",
+    "cmp must return a negative/zero/positive number, not a bool. `return a < b` looks reasonable but breaks the sort silently, because True/False do not encode \"equal\".",
+    "min(), max(), and heapq all accept the same key= parameter — you rarely need a full sort just to pull out one extreme.",
+    "heapq has no key= or comparator hook at all: negate numeric keys yourself, or push (key(x), x) tuples so the tuple comparison does the ordering.",
+  ],
+  problems: ["car-fleet", "k-closest-points-to-origin", "merge-intervals", "meeting-rooms-ii"],
+},
+{
   id: "stdlib",
   name: "Interview stdlib grab bag",
   tag: "functools, itertools, math",
   blurb: "The handful of stdlib helpers that actually come up: memoization, infinity, integer math, and a few iterator tools.",
   use: "Cutting boilerplate out of DP, comparisons, and combinatorics.",
-  imports: "from functools import cache, lru_cache, cmp_to_key\nimport math, itertools",
+  imports: "from functools import cache, lru_cache\nimport math, itertools",
   ops: [
     ["@cache / @lru_cache(None)", "O(1) per hit", "Turns a plain recursion into top-down DP. Arguments must be hashable."],
     ["math.inf, -math.inf", "O(1)", "Safe initial values for min/max sweeps; float('inf') is the same thing."],
@@ -416,7 +470,6 @@ lis = len(tails)`,
     ["math.gcd(a, b), math.comb(n, k)", "O(log n), O(k)", "No need to hand-roll Euclid or Pascal."],
     ["itertools.accumulate(a)", "O(n)", "Running prefix sums (pass an operator for prefix products/max)."],
     ["itertools.pairwise(a) (3.10+)", "O(n)", "Adjacent pairs without the zip(a, a[1:]) copy."],
-    ["cmp_to_key(f)", "O(1) wrap", "When the order needs a pairwise comparison, not a key."],
   ],
   code: `from functools import cache
 import math, itertools
@@ -432,11 +485,7 @@ best = -math.inf
 r, c = divmod(idx, cols)                 # flat index -> grid cell
 prefix = list(itertools.accumulate(nums))
 for a, b in itertools.pairwise(nums):    # adjacent pairs
-    ...
-
-# Custom pairwise ordering (e.g. "largest number" concatenation).
-from functools import cmp_to_key
-nums.sort(key=cmp_to_key(lambda a, b: (b + a > a + b) - (b + a < a + b)))`,
+    ...`,
   gotchas: [
     "@cache on a method keeps `self` alive in the cache — fine for one interview call, a leak in real code.",
     "A memoized function that takes a list argument will raise: convert to a tuple first.",
@@ -669,6 +718,69 @@ def reverse(head):
     "Check `while fast and fast.next` before stepping two — the order of those two checks matters.",
   ],
   problems: ["reverse-linked-list", "merge-two-sorted-lists", "reorder-list", "remove-nth-node-from-end-of-list"],
+},
+{
+  id: "doublylistnode",
+  name: "Doubly linked list (Node with prev & next)",
+  tag: "pointers · O(1) splice",
+  blurb: "Each node points both ways, so removing or moving a node you already hold a reference to is O(1) — no walk from the head needed to find its predecessor first.",
+  use: "LRU / LFU caches, browser history, undo stacks, and anything needing O(1) removal-by-reference plus O(1) push at both ends. collections.deque is the built-in version of this same idea.",
+  imports: "",
+  ops: [
+    ["access by index", "O(n)", "Still no random access — you walk, just in either direction."],
+    ["insert / remove given the NODE itself", "O(1)", "No predecessor lookup needed: the node already points at it."],
+    ["push / pop at either end (with sentinels)", "O(1)", "Dummy head + tail turn every \"is this the first/last real node?\" branch into the general case."],
+    ["lookup by key", "O(n) alone", "A doubly linked list has no key lookup of its own — pair it with a dict, see below."],
+  ],
+  code: `class DListNode:
+    def __init__(self, key=0, val=0):
+        self.key, self.val = key, val
+        self.prev = self.next = None
+
+# LRU Cache: a dict for O(1) lookup + a doubly linked list for O(1)
+# reordering. Sentinels remove every empty-list / single-node special case.
+class LRUCache:
+    def __init__(self, capacity):
+        self.cap = capacity
+        self.cache = {}                      # key -> DListNode
+        self.left = DListNode()              # LRU side
+        self.right = DListNode()             # MRU side
+        self.left.next, self.right.prev = self.right, self.left
+
+    def _remove(self, node):
+        prev, nxt = node.prev, node.next
+        prev.next, nxt.prev = nxt, prev      # splice node out — O(1)
+
+    def _insert_at_right(self, node):
+        prev, nxt = self.right.prev, self.right
+        prev.next = nxt.prev = node
+        node.prev, node.next = prev, nxt     # splice node in, just left of right sentinel
+
+    def get(self, key):
+        if key not in self.cache:
+            return -1
+        node = self.cache[key]
+        self._remove(node)
+        self._insert_at_right(node)          # touched -> most recently used
+        return node.val
+
+    def put(self, key, value):
+        if key in self.cache:
+            self._remove(self.cache[key])
+        node = DListNode(key, value)
+        self.cache[key] = node
+        self._insert_at_right(node)
+        if len(self.cache) > self.cap:
+            lru = self.left.next             # node just after the left sentinel
+            self._remove(lru)
+            del self.cache[lru.key]`,
+  gotchas: [
+    "Every splice touches up to four pointers (both of the node's own, and both neighbors'). Miss one and the list corrupts silently instead of raising.",
+    "Sentinel (dummy) head and tail nodes are almost always worth the two extra allocations — without them, removing the actual head or tail needs its own branch.",
+    "A doubly linked list alone does not give O(1) lookup by key. The trick in LRU Cache is pairing it with a dict from key to node — the list handles order, the dict handles lookup.",
+    "collections.deque already gives O(1) push/pop at both ends; write a linked list by hand only when you need to splice out an arbitrary node you're holding a reference to, which deque cannot do.",
+  ],
+  problems: ["lru-cache"],
 },
 {
   id: "treenode",
