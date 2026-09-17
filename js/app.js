@@ -74,6 +74,10 @@ function homePage() {
           <b>🧩 Template patterns</b>
           <span>Sliding window, binary search on the answer, topological sort, backtracking, DP — the shapes these 150 problems collapse into.</span>
         </a>
+        <a class="ref-link" href="#/codesignal">
+          <b>🏗️ Industry coding, level by level</b>
+          <span>The other interview: one small system specified in four levels — CRUD, then a ranked query, then TTLs, then history. ${csTotalLevels()} levels of worked, tested code.</span>
+        </a>
       </div>
       <div class="toolbar">
         <input class="search" id="search" placeholder="Search problems… (e.g. two sum, stack)" value="${esc(searchQuery)}">
@@ -427,6 +431,274 @@ function referencePage(kind, focusId) {
   });
 }
 
+// --- CodeSignal-style industry coding ------------------------------------
+// One problem, four levels, each one landing on the code the last level left
+// behind — so the page shows the code growing rather than four separate files.
+
+const CS_DONE_KEY = "algoviz.cslevels.v1";
+function loadCsDone() {
+  try { return new Set(JSON.parse(localStorage.getItem(CS_DONE_KEY) || "[]")); }
+  catch { return new Set(); }
+}
+const csDone = loadCsDone();
+const csKey = (id, n) => `${id}:${n}`;
+function saveCsDone() {
+  try { localStorage.setItem(CS_DONE_KEY, JSON.stringify([...csDone])); } catch { /* storage disabled */ }
+}
+function csTotalLevels() {
+  return CS_CHALLENGES.reduce((n, c) => n + c.levels.length, 0);
+}
+
+// Which lines of `cur` are new relative to `prev`? Straight line-level LCS —
+// the codes are ~150 lines, so the quadratic table is free.
+function csAddedLines(prev, cur) {
+  if (!prev) return cur.map(() => false);
+  const n = prev.length, m = cur.length;
+  const dp = Array.from({ length: n + 1 }, () => new Uint16Array(m + 1));
+  for (let i = n - 1; i >= 0; i--) {
+    for (let j = m - 1; j >= 0; j--) {
+      dp[i][j] = prev[i] === cur[j]
+        ? dp[i + 1][j + 1] + 1
+        : Math.max(dp[i + 1][j], dp[i][j + 1]);
+    }
+  }
+  const added = new Array(m).fill(true);
+  let i = 0, j = 0;
+  while (i < n && j < m) {
+    if (prev[i] === cur[j]) { added[j] = false; i++; j++; }
+    else if (dp[i + 1][j] >= dp[i][j + 1]) i++;
+    else j++;
+  }
+  return added;
+}
+
+function csCodeMarkup(level, prevLevel, highlight) {
+  const lines = level.code.split("\n");
+  const added = csAddedLines(prevLevel ? prevLevel.code.split("\n") : null, lines);
+  const count = added.filter(Boolean).length;
+  const body = lines.map((line, i) =>
+    `<span class="cl${highlight && added[i] ? " cs-add" : ""}">${esc(line) || " "}</span>`).join("");
+  return { html: `<pre class="pycode cs-code">${body}</pre>`, added: count };
+}
+
+function csLevelBody(ch, level, prevLevel, highlight) {
+  const { html, added } = csCodeMarkup(level, prevLevel, highlight);
+  const done = csDone.has(csKey(ch.id, level.n));
+  return `
+    <div class="cs-lv-head">
+      <div>
+        <h4 class="cs-lv-title"><span class="cs-lv-n">Level ${level.n}</span>${esc(level.name)}</h4>
+        <span class="cs-lv-time">${esc(level.minutes)}</span>
+      </div>
+      <button type="button" class="cs-done${done ? " on" : ""}" data-ch="${ch.id}" data-l="${level.n}"
+        role="checkbox" aria-checked="${done}">${done ? "✓ Solved" : "Mark solved"}</button>
+    </div>
+
+    <div class="cs-ops">
+      <h5>${level.n === 1 ? "Operations" : `What level ${level.n} adds`}</h5>
+      <table class="ops">
+        <tbody>${level.ops.map(([sig, desc]) => `<tr>
+          <td class="op"><code>${esc(sig)}</code></td>
+          <td class="opnote">${esc(desc)}</td>
+        </tr>`).join("")}</tbody>
+      </table>
+    </div>
+
+    <div class="cs-idea">${level.idea.map(p => `<p>${esc(p)}</p>`).join("")}</div>
+
+    <div class="rc-notes cs-design">
+      <h4>Design decisions</h4>
+      <ul>${level.design.map(d => `<li>${esc(d)}</li>`).join("")}</ul>
+    </div>
+
+    <div class="codeblock">
+      <div class="cs-code-bar">
+        ${prevLevel
+          ? `<label class="cs-diff-toggle"><input type="checkbox" class="cs-diff" ${highlight ? "checked" : ""}>
+              <span>Highlight the ${added} line${added === 1 ? "" : "s"} level ${level.n} adds</span></label>`
+          : `<span class="cs-code-note">The starting point — everything below is level 1.</span>`}
+        <button type="button" class="copy-btn cs-copy">Copy</button>
+      </div>
+      ${html}
+    </div>
+
+    <div class="cs-trace">
+      <h5>Worked example</h5>
+      <pre class="cs-trace-pre">${esc(level.trace)}</pre>
+    </div>
+
+    <div class="rc-gotchas cs-traps">
+      <h4>What the tests poke at</h4>
+      <ul>${level.pitfalls.map(p => `<li>${esc(p)}</li>`).join("")}</ul>
+    </div>`;
+}
+
+function csRefChips(ch) {
+  const chips = [
+    ...(ch.structures || []).map(id => [`#/python/${id}`, "ds", id]),
+    ...(ch.patterns || []).map(id => [`#/patterns/${id}`, "pat", id]),
+  ];
+  const names = {};
+  PY_STRUCTS.forEach(([, items]) => items.forEach(it => { names[it.id] = it.name; }));
+  PY_PATTERNS.forEach(([, items]) => items.forEach(it => { names[it.id] = it.name; }));
+  const links = chips.filter(([, , id]) => names[id])
+    .map(([href, cls, id]) => `<a class="chip ${cls}" href="${href}">${esc(names[id])}</a>`).join("");
+  if (!links) return "";
+  return `<div class="rc-rel"><span class="rc-rel-h">Leans on</span>${links}</div>`;
+}
+
+function csChallengeMarkup(ch, open, level) {
+  const solved = ch.levels.filter(l => csDone.has(csKey(ch.id, l.n))).length;
+  return `<details class="cs-card" id="cs-${ch.id}"${open ? " open" : ""} data-ch="${ch.id}">
+    <summary>
+      <span class="rc-name">${esc(ch.name)}</span>
+      <span class="rc-tag">${esc(ch.tag)}</span>
+      <span class="rc-blurb">${esc(ch.blurb)}</span>
+      <span class="cs-card-prog${solved === ch.levels.length ? " complete" : ""}">${solved}/${ch.levels.length}</span>
+    </summary>
+    <div class="cs-card-body">
+      <p class="rc-use">${esc(ch.story)}</p>
+      ${csRefChips(ch)}
+      <div class="cs-tabs">
+        ${ch.levels.map(l => `<button type="button" class="cs-tab${l.n === level ? " active" : ""}" data-l="${l.n}">
+          <b>Level ${l.n}</b><span>${esc(l.name)}</span>
+        </button>`).join("")}
+      </div>
+      <div class="cs-level" data-level="${level}"></div>
+    </div>
+  </details>`;
+}
+
+function codesignalPage(focusId, focusLevel) {
+  const total = csTotalLevels();
+  app.innerHTML = `
+    <a class="back" href="#/">← All problems</a>
+    <section class="hero">
+      <h1>Industry coding, four levels deep</h1>
+      <p>${esc(CS_FORMAT.intro)}</p>
+      <div class="stats">
+        <div class="stat"><b>${CS_CHALLENGES.length}</b> challenges</div>
+        <div class="stat"><b>${total}</b> levels</div>
+        <div class="stat progress-stat"><b id="cs-count">${csDone.size}</b> solved</div>
+      </div>
+    </section>
+
+    <section class="cs-facts">
+      ${CS_FORMAT.facts.map(([k, v]) => `<div class="cs-fact"><b>${esc(k)}</b><span>${esc(v)}</span></div>`).join("")}
+    </section>
+
+    <section class="refgroup">
+      <h2>The ladder <em>the same four rungs every time</em></h2>
+      <div class="cs-ladder">
+        ${CS_FORMAT.levels.map(l => `<div class="cs-rung">
+          <span class="cs-rung-n">${l.n}</span>
+          <div>
+            <b>${esc(l.name)}</b>
+            <p>${esc(l.what)}</p>
+            <p class="cs-rung-ask">${esc(l.ask)}</p>
+          </div>
+        </div>`).join("")}
+      </div>
+      <p class="cs-ladder-note">${esc(CS_FORMAT.note)}</p>
+    </section>
+
+    <section class="refgroup">
+      <h2>Playbook <em>${CS_PLAYBOOK.length} habits</em></h2>
+      <div class="cs-play">
+        ${CS_PLAYBOOK.map(x => `<div class="cs-play-card">
+          <b>${esc(x.h)}</b>
+          <p>${esc(x.p)}</p>
+        </div>`).join("")}
+      </div>
+    </section>
+
+    <section class="refgroup">
+      <h2>Challenges <em>${CS_CHALLENGES.length}, twelve levels, every line tested</em></h2>
+      <div id="cs-list">
+        ${CS_CHALLENGES.map(ch => csChallengeMarkup(
+            ch,
+            focusId ? ch.id === focusId : ch === CS_CHALLENGES[0],
+            ch.id === focusId && focusLevel ? focusLevel : 1)).join("")}
+      </div>
+    </section>
+
+    <section class="refgroup">
+      <h2>The traps <em>that decide the score</em></h2>
+      <div class="rc-gotchas cs-traps wide">
+        <ul>${CS_PITFALLS.map(p => `<li>${esc(p)}</li>`).join("")}</ul>
+      </div>
+    </section>
+
+    <p class="cs-disclaimer">These are original practice challenges written against the publicly documented
+      shape of this assessment format — not questions from any real assessment. Every solution on this page
+      was executed against a test suite before it was published.</p>`;
+
+  const byId = Object.fromEntries(CS_CHALLENGES.map(c => [c.id, c]));
+  const highlight = {};   // challenge id -> whether the diff highlight is on
+
+  const renderLevel = card => {
+    const ch = byId[card.dataset.ch];
+    const mount = card.querySelector(".cs-level");
+    const n = +mount.dataset.level;
+    const level = ch.levels.find(l => l.n === n);
+    const prev = ch.levels.find(l => l.n === n - 1) || null;
+    if (highlight[ch.id] === undefined) highlight[ch.id] = true;
+    mount.innerHTML = csLevelBody(ch, level, prev, highlight[ch.id]);
+    card.querySelectorAll(".cs-tab").forEach(t => t.classList.toggle("active", +t.dataset.l === n));
+  };
+  document.querySelectorAll(".cs-card").forEach(renderLevel);
+
+  document.getElementById("cs-list").addEventListener("click", e => {
+    const card = e.target.closest(".cs-card");
+    if (!card) return;
+
+    const tab = e.target.closest(".cs-tab");
+    if (tab) {
+      card.querySelector(".cs-level").dataset.level = tab.dataset.l;
+      renderLevel(card);
+      return;
+    }
+
+    const done = e.target.closest(".cs-done");
+    if (done) {
+      const key = csKey(done.dataset.ch, done.dataset.l);
+      if (csDone.has(key)) csDone.delete(key); else csDone.add(key);
+      saveCsDone();
+      const ch = byId[done.dataset.ch];
+      const solved = ch.levels.filter(l => csDone.has(csKey(ch.id, l.n))).length;
+      const badge = card.querySelector(".cs-card-prog");
+      badge.textContent = `${solved}/${ch.levels.length}`;
+      badge.classList.toggle("complete", solved === ch.levels.length);
+      document.getElementById("cs-count").textContent = csDone.size;
+      renderLevel(card);
+      return;
+    }
+
+    const copy = e.target.closest(".cs-copy");
+    if (copy) {
+      const ch = byId[card.dataset.ch];
+      const n = +card.querySelector(".cs-level").dataset.level;
+      const code = ch.levels.find(l => l.n === n).code;
+      navigator.clipboard?.writeText(code).then(() => {
+        copy.textContent = "Copied";
+        setTimeout(() => { copy.textContent = "Copy"; }, 1200);
+      }).catch(() => { copy.textContent = "Press ⌘C"; });
+    }
+  });
+
+  document.getElementById("cs-list").addEventListener("change", e => {
+    if (!e.target.classList.contains("cs-diff")) return;
+    const card = e.target.closest(".cs-card");
+    highlight[card.dataset.ch] = e.target.checked;
+    renderLevel(card);
+  });
+
+  if (focusId) {
+    const el = document.getElementById("cs-" + focusId);
+    if (el) el.scrollIntoView({ block: "start" });
+  }
+}
+
 function slugify(s) {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
@@ -435,8 +707,10 @@ function route() {
   const hash = location.hash || "#/";
   const m = hash.match(/^#\/p\/([a-z0-9-]+)/);
   const ref = hash.match(/^#\/(python|patterns)(?:\/([a-z0-9-]+))?/);
+  const cs = hash.match(/^#\/codesignal(?:\/([a-z0-9-]+))?(?:\/([1-4]))?/);
   window.scrollTo(0, 0);
   if (m) problemPage(m[1]);
+  else if (cs) codesignalPage(cs[1] || null, cs[2] ? +cs[2] : null);
   else if (ref) referencePage(ref[1], ref[2] || null);
   else homePage();
 }
