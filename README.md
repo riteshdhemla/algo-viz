@@ -33,13 +33,16 @@ starting with the [NeetCode 150](https://neetcode.io/practice/practice/neetcode1
   reach for it, a copy-paste Python template, why it works, and the problems to practise it on.
   Problem pages link back to the templates and structures they use.
 - **Industry coding, level by level** (`#/codesignal`) — the other interview: one small system
-  specified in four levels, each landing on the code the last level left behind. Three practice
-  challenges (in-memory file storage, a banking system, a key/field database), twelve levels, with
-  for each level the operations it adds, the design decisions, the worked example, the traps the
-  tests poke at, and the full Python solution — **with the lines that level adds highlighted**, so
-  you can watch the same class grow from 21 lines to 141. Plus the shape of the format itself: the
-  four rungs that recur in every one of these (CRUD → ranked query → time → history) and an
-  eight-item playbook of the habits that decide whether level 4 is reachable at all.
+  specified in four levels, each landing on the code the last level left behind. **All seven themes**
+  — file system / cloud storage (`filesystem`), banking (`bank`), in-memory database (`imdb`),
+  key-value store with transactions (`kvstore`), task / job scheduler (`scheduler`), inventory /
+  order system (`inventory`), and hotel / parking / leaderboard (`hotel`) — 28 levels and 71
+  operations in all. Each level gives the operations it adds, the design decisions, a worked example,
+  the traps the tests poke at, and the full Python solution — **with the lines that level adds
+  highlighted**, so you can watch one class grow from 39 lines to 179. Plus the shape of the format
+  itself: the four rungs that recur in almost every one of these (CRUD → ranked query → time →
+  history, and where the hotel deviates) and an eight-item playbook of the habits that decide whether
+  level 4 is reachable at all.
 
 ## Running locally
 
@@ -121,3 +124,7 @@ level, not a fragment — the page diffs it against the previous level's code (l
 `csAddedLines`) to highlight what the level added, so the levels must be cumulative. Write and run
 the Python before pasting it in; every solution on that page was executed against a test suite
 covering the edge cases listed under each level's traps.
+
+The seven challenge ids match the standard kit names (`filesystem`, `bank`, `imdb`, `kvstore`,
+`scheduler`, `inventory`, `hotel`). `CS_ALIASES` in `js/app.js` keeps older deep links working after
+a rename.

@@ -574,7 +574,12 @@ function csChallengeMarkup(ch, open, level) {
   </details>`;
 }
 
+// The three original challenges were renamed to match the kit's names; old
+// deep links still have to land somewhere.
+const CS_ALIASES = { "file-storage": "filesystem", "banking": "bank", "database": "imdb" };
+
 function codesignalPage(focusId, focusLevel) {
+  focusId = CS_ALIASES[focusId] || focusId;
   const total = csTotalLevels();
   app.innerHTML = `
     <a class="back" href="#/">← All problems</a>
@@ -618,7 +623,7 @@ function codesignalPage(focusId, focusLevel) {
     </section>
 
     <section class="refgroup">
-      <h2>Challenges <em>${CS_CHALLENGES.length}, twelve levels, every line tested</em></h2>
+      <h2>Challenges <em>${CS_CHALLENGES.length} themes, ${total} levels, every line tested</em></h2>
       <div id="cs-list">
         ${CS_CHALLENGES.map(ch => csChallengeMarkup(
             ch,
