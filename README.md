@@ -62,6 +62,15 @@ A deploy workflow is included at `.github/workflows/pages.yml`. To get a live UR
 
 The site will be published at `https://<user>.github.io/algo-viz/`.
 
+### Cache busting
+
+GitHub Pages serves every file with `Cache-Control: max-age=600`, so a browser can pick up a fresh
+`index.html` while still holding a stale `js/app.js` — which shows up as a nav link that leads
+nowhere, because the cached router has no route for the new page. The asset URLs in `index.html`
+therefore carry a `?v=<date>` token. **Bump it whenever you change a JS or CSS file**, so the new
+markup can never pair with old code. (Visitors on a stale copy can always force the new one with a
+hard refresh: Ctrl/Cmd+Shift+R.)
+
 ## Coverage
 
 **All 150 problems are visualized** — every category is complete: arrays & hashing, two pointers,

@@ -53,6 +53,7 @@ function updateOverallProgress() {
 function homePage() {
   const total = Object.keys(PROBLEMS).length;
   const vizCount = Object.keys(VIS).length;
+  const csLevels = csTotalLevels();
   app.innerHTML = `
     <section class="hero">
       <h1>Visualize the optimal solution to every problem</h1>
@@ -76,7 +77,7 @@ function homePage() {
         </a>
         <a class="ref-link" href="#/codesignal">
           <b>🏗️ Industry coding, level by level</b>
-          <span>The other interview: one small system specified in four levels — CRUD, then a ranked query, then TTLs, then history. ${csTotalLevels()} levels of worked, tested code.</span>
+          <span>The other interview: one small system specified in four levels — CRUD, then a ranked query, then TTLs, then history. ${csLevels ? `${csLevels} levels of` : ""} worked, tested code.</span>
         </a>
       </div>
       <div class="toolbar">
@@ -446,7 +447,11 @@ function saveCsDone() {
   try { localStorage.setItem(CS_DONE_KEY, JSON.stringify([...csDone])); } catch { /* storage disabled */ }
 }
 function csTotalLevels() {
-  return CS_CHALLENGES.reduce((n, c) => n + c.levels.length, 0);
+  // Guarded: the home page shows this count, and a missing codesignal.js
+  // should cost that one phrase, not take the whole site down with it.
+  return typeof CS_CHALLENGES === "undefined"
+    ? 0
+    : CS_CHALLENGES.reduce((n, c) => n + c.levels.length, 0);
 }
 
 // Which lines of `cur` are new relative to `prev`? Straight line-level LCS —
